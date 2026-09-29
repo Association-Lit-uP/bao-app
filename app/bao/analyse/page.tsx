@@ -251,6 +251,7 @@ export default function AnalysePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -307,6 +308,47 @@ export default function AnalysePage() {
       scores[cle] = Math.round(weighted);
     });
     return scores;
+  }
+
+  function generateTextReport(a: Analyse): string {
+    const dateStr = dateAtelier ? new Date(dateAtelier).toLocaleDateString("fr-FR") : null;
+    const header = [
+      "BILAN DU BAROMÈTRE DE L'ENGAGEMENT",
+      [nomAtelier, dateStr, nbJeunes ? `${nbJeunes} jeunes` : null, typeEval === "ponctuelle" ? "Évaluation ponctuelle" : "Évaluation de parcours"]
+        .filter(Boolean).join(" — "),
+    ].filter(Boolean).join("\n");
+
+    const lignesScores = CLES
+      .filter((c) => a.scores[c.nom] !== undefined)
+      .map((c) => {
+        const s = a.scores[c.nom];
+        const zone = s >= 70 ? "Force" : s >= 50 ? "Neutre" : s >= 30 ? "Attention" : "Critique";
+        return `  ${c.emoji} ${c.nom} : ${s}% (${zone})`;
+      })
+      .join("\n");
+
+    const sections: string[] = [header, `\nSCORES PAR CLÉ\n${lignesScores}`];
+
+    if (a.forces.length > 0)
+      sections.push(`\nPOINTS FORTS (≥ 70%)\n  ${a.forces.map((f) => CLES.find((c) => c.nom === f)?.emoji + " " + f).join(", ")}`);
+    if (a.neutres.length > 0)
+      sections.push(`ZONES NEUTRES (50-69%)\n  ${a.neutres.map((f) => CLES.find((c) => c.nom === f)?.emoji + " " + f).join(", ")}`);
+    if (a.attention.length > 0)
+      sections.push(`ZONES D'ATTENTION (30-49%)\n  ${a.attention.map((f) => CLES.find((c) => c.nom === f)?.emoji + " " + f).join(", ")}`);
+    if (a.critiques.length > 0)
+      sections.push(`ZONES CRITIQUES (< 30%)\n  ${a.critiques.map((f) => CLES.find((c) => c.nom === f)?.emoji + " " + f).join(", ")}`);
+    if (a.actions.length > 0)
+      sections.push(`\nPISTES D'ACTION\n${a.actions.map((act) => `  - ${act}`).join("\n")}`);
+
+    return sections.join("\n");
+  }
+
+  function handleCopyReport() {
+    if (!analyse) return;
+    navigator.clipboard.writeText(generateTextReport(analyse)).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
   }
 
   function handleManualSubmit() {
@@ -894,8 +936,21 @@ ${jsonTemplate}`
               </div>
             )}
 
-            {/* Sauvegarder + Liens */}
+            {/* Sauvegarder + Copier + Liens */}
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              <button
+                onClick={handleCopyReport}
+                style={{
+                  padding: "11px 20px", background: copied ? "#16a34a" : "white",
+                  color: copied ? "white" : "var(--canard)", borderRadius: "24px",
+                  border: `2px solid ${copied ? "#16a34a" : "var(--canard)"}`,
+                  fontSize: "13px", fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "8px",
+                  transition: "all 0.2s",
+                }}
+              >
+                {copied ? "✓ Bilan copié !" : "📋 Copier le bilan"}
+              </button>
               {userId && (
                 <button
                   onClick={() => analyse && saveAnalyse(analyse)}
