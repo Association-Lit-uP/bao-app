@@ -732,6 +732,7 @@ function AnalyseDetailModal({ analyse, onClose }: { analyse: AnalyseRow; onClose
   const detail = analyse.scores_detail || {};
   const alertes = analyse.alertes || [];
   const isPro = analyse.type_eval === "diagnostic_pro"; // 🆕
+  const [copied, setCopied] = useState(false);
 
   // Protection : ne traiter scores que si ce sont bien des nombres
   const safeScores: Record<string, number> = {};
@@ -739,6 +740,49 @@ function AnalyseDetailModal({ analyse, onClose }: { analyse: AnalyseRow; onClose
     if (typeof v === "number") safeScores[k] = v;
   }
   const scoreEntries = CLE_LABELS.map((k) => [k, safeScores[k] || 0] as [string, number]);
+
+  function generateTextReport(): string {
+    if (isPro && analyse.analysis_text) {
+      const header = ["BILAN DE L'AUTO-ÉVALUATION DU PRO", [
+        analyse.nom_atelier,
+        analyse.date_atelier ? new Date(analyse.date_atelier).toLocaleDateString("fr-FR") : null,
+      ].filter(Boolean).join(" — ")].filter(Boolean).join("\n");
+      return `${header}\n\n${analyse.analysis_text.replace(/<[^>]+>/g, "")}`;
+    }
+    const dateStr = analyse.date_atelier ? new Date(analyse.date_atelier).toLocaleDateString("fr-FR") : null;
+    const header = ["BILAN DU BAROMÈTRE DE L'ENGAGEMENT", [
+      analyse.nom_atelier,
+      dateStr,
+      analyse.nb_jeunes ? `${analyse.nb_jeunes} jeunes` : null,
+    ].filter(Boolean).join(" — ")].filter(Boolean).join("\n");
+
+    const lignesScores = CLE_LABELS
+      .filter((cle) => safeScores[cle] !== undefined)
+      .map((cle) => {
+        const s = safeScores[cle];
+        const zone = s >= 70 ? "Force" : s >= 50 ? "Neutre" : s >= 30 ? "Attention" : "Critique";
+        return `  ${cle} : ${s}% (${zone})`;
+      }).join("\n");
+
+    const forces = CLE_LABELS.filter((c) => safeScores[c] >= 70);
+    const neutres = CLE_LABELS.filter((c) => safeScores[c] >= 50 && safeScores[c] < 70);
+    const attention = CLE_LABELS.filter((c) => safeScores[c] >= 30 && safeScores[c] < 50);
+    const critiques = CLE_LABELS.filter((c) => safeScores[c] < 30 && safeScores[c] !== undefined);
+
+    const sections: string[] = [header, `\nSCORES PAR CLÉ\n${lignesScores}`];
+    if (forces.length > 0) sections.push(`\nPOINTS FORTS (≥ 70%)\n  ${forces.join(", ")}`);
+    if (neutres.length > 0) sections.push(`ZONES NEUTRES (50-69%)\n  ${neutres.join(", ")}`);
+    if (attention.length > 0) sections.push(`ZONES D'ATTENTION (30-49%)\n  ${attention.join(", ")}`);
+    if (critiques.length > 0) sections.push(`ZONES CRITIQUES (< 30%)\n  ${critiques.join(", ")}`);
+    return sections.join("\n");
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(generateTextReport()).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  }
 
   return (
     <div onClick={onClose} style={{
@@ -877,18 +921,34 @@ function AnalyseDetailModal({ analyse, onClose }: { analyse: AnalyseRow; onClose
           </>
         )}
 
-        {/* 🆕 Bouton pour aller à la BAO filtrée */}
+        {/* Bouton pour aller à la BAO filtrée + Copier le bilan */}
         <div style={{ display: "flex", gap: "12px", marginTop: "28px", flexWrap: "wrap" }}>
-          <Link
-            href={`/bao?mode=cles&alertes=${encodeURIComponent(alertes.join(","))}&atelier=${encodeURIComponent(analyse.nom_atelier || "")}`}
-            onClick={onClose}
+          <button
+            onClick={handleCopy}
             style={{
-              padding: "10px 18px", borderRadius: "20px", background: "#00989D",
-              color: "white", fontSize: "13px", fontWeight: 700, textDecoration: "none",
+              padding: "10px 18px", borderRadius: "20px",
+              background: copied ? "#16a34a" : "white",
+              color: copied ? "white" : "#00989D",
+              border: `2px solid ${copied ? "#16a34a" : "#00989D"}`,
+              fontSize: "13px", fontWeight: 700, cursor: "pointer",
+              fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: "8px",
+              transition: "all 0.2s",
             }}
           >
-            🔑 Trouver les outils adaptés
-          </Link>
+            {copied ? "✓ Bilan copié !" : "📋 Copier le bilan"}
+          </button>
+          {!isPro && (
+            <Link
+              href={`/bao?mode=cles&alertes=${encodeURIComponent(alertes.join(","))}&atelier=${encodeURIComponent(analyse.nom_atelier || "")}`}
+              onClick={onClose}
+              style={{
+                padding: "10px 18px", borderRadius: "20px", background: "#00989D",
+                color: "white", fontSize: "13px", fontWeight: 700, textDecoration: "none",
+              }}
+            >
+              🔑 Trouver les outils adaptés
+            </Link>
+          )}
         </div>
 
         {/* Légende des couleurs : uniquement pour les baromètres (les couleurs rose/jaune/bleu/vert ne s'appliquent pas aux auto-évaluations) */}
