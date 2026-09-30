@@ -4,7 +4,7 @@
 > intervient sur `lit-up-fr/bao-app`. À lire avant la première contribution,
 > à relire avant une grosse modif, à mettre à jour après chaque session.
 >
-> Dernière mise à jour : 22 septembre 2026.
+> Dernière mise à jour : 30 septembre 2026.
 
 ---
 
@@ -47,6 +47,7 @@ remobiliser les jeunes de 14 à 25 ans.
 | Laetitia de Borde | Product owner et développeuse principale | `laetitia.deborde@lit-up.fr` (pro) et `laetitiadeborde@gmail.com` (perso, historique) |
 | Claude (Claude Code) | Pair programmeur, migrations, sécurité, analytics | `noreply@anthropic.com` |
 | Compte org | Merges de PR | `lit-up-fr` |
+| Gabriela | Conformité : RGPD, propriété intellectuelle des jeux, CGU, modèle économique et charte d'engagement | pas d'identité Git connue à ce jour |
 
 **Règle d'identité Git (importante)** : configure ton email **pro** dans le repo,
 sinon Vercel bloque le déploiement (voir §8, piège « Deployment was blocked »).
@@ -638,6 +639,32 @@ table Airtable et son mapping Make.
 
 - Finaliser le domaine personnalisé `bao.lit-up.fr`.
 
+#### Conformité : RGPD, propriété intellectuelle, CGU et modèle économique
+
+Chantier repris par **Gabriela** (30 septembre 2026). Échéance : **fin octobre
+2026**, pour un webinaire de lancement. Il couvre, pour tous les outils Lit uP,
+le RGPD, la propriété intellectuelle des jeux (licence Creative Commons,
+enveloppe e-Soleau), les CGU et le modèle économique (charte d'engagement et
+contreparties quand un outil est mis à disposition).
+
+L'état des lieux de la BAO est dans
+`docs/conformite-rgpd-pi-cgu-transmission.md` (données collectées,
+sous-traitants, manques, décisions à prendre). Les constats qui appellent du
+code :
+
+- **Les pages `/cgu` et `/confidentialite` n'existent pas** : la case à cocher
+  de l'inscription pointe sur deux 404. À créer, avec `/mentions-legales` et un
+  pied de page qui les relie.
+- Aucune licence n'est indiquée sur le contenu pédagogique (fiches, PDF, clés,
+  défis de la roulette), alors que l'app promet « faite pour être partagée ».
+  La licence choisie devra apparaître sur la fiche, dans le PDF et dans les CGU.
+- Le code est sous licence MIT (`LICENSE`) : à confirmer ou à changer.
+- Pas de suppression de compte ni d'export en libre-service, pas de durées de
+  conservation, suppression non propagée vers Airtable, Google Sheet et Resend.
+- Google Fonts est chargé depuis les serveurs Google : héberger les polices.
+- Consigne « pas de données identifiantes sur les jeunes » à ajouter sur les
+  champs libres du diagnostic et la zone photo.
+
 #### Sécurité, à traiter avant d'ouvrir des accès
 
 - **Porter les rôles admin dans le RLS.** Le RLS ne teste aujourd'hui que
@@ -699,6 +726,7 @@ table Airtable et son mapping Make.
 | Historique de migrations incomplet (objets créés dans le dashboard) | `supabase db push` inutilisable | élevée |
 | Rôles admin non appliqués dans le RLS | un rôle restreint ne l'est pas en base | moyenne |
 | `/bao/diagnostic-pro` sans lien entrant | page livrée mais inatteignable | faible |
+| Pages `/cgu` et `/confidentialite` absentes (liens 404 depuis l'inscription) | consentement recueilli sur des textes inexistants | faible |
 | Edge function `send-welcome-email` jamais déployée | code mort tant que la confirmation d'email est désactivée | faible |
 
 Avant de t'attaquer à une ligne de ce tableau, annonce-le : plusieurs de ces
