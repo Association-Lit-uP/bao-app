@@ -39,6 +39,7 @@ export default function FicheDetailPage({ params }: { params: { slug: string } }
   const searchParams = useSearchParams();
   const [userId, setUserId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [pdfEnCours, setPdfEnCours] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -94,6 +95,20 @@ export default function FicheDetailPage({ params }: { params: { slug: string } }
         </div>
       </div>
     );
+  }
+
+  const ficheChargee = fiche;
+  async function handleTelechargerPdf() {
+    if (pdfEnCours) return;
+    setPdfEnCours(true);
+    logEvent("pdf_download", { ficheId: ficheChargee.id });
+    try {
+      await generateFichePdf(ficheChargee, cles.map((c) => ({ nom: c.nom, emoji: (c as any).emoji })));
+    } catch (err) {
+      console.error("Erreur génération PDF :", err);
+    } finally {
+      setPdfEnCours(false);
+    }
   }
 
   const duree = formatDuree(fiche);
@@ -384,13 +399,13 @@ export default function FicheDetailPage({ params }: { params: { slug: string } }
 
         {/* PDF */}
         <div style={{ marginTop: "28px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <button onClick={() => { logEvent("pdf_download", { ficheId: fiche.id }); generateFichePdf({ ...fiche, cles: cles.map(c => ({ nom: c.nom, emoji: (c as any).emoji })) }); }} style={{
+          <button onClick={handleTelechargerPdf} disabled={pdfEnCours} aria-busy={pdfEnCours} style={{
             padding: "11px 20px", border: "2px solid var(--canard)", background: "var(--canard)", color: "white",
-            fontFamily: "inherit", fontSize: "13px", fontWeight: 700, cursor: "pointer", borderRadius: "24px",
+            fontFamily: "inherit", fontSize: "13px", fontWeight: 700, cursor: pdfEnCours ? "wait" : "pointer", borderRadius: "24px",
             transition: "all 0.2s", display: "inline-flex", alignItems: "center", gap: "8px",
-            letterSpacing: "0.02em",
+            letterSpacing: "0.02em", opacity: pdfEnCours ? 0.7 : 1,
           }}>
-            ↓ Télécharger la fiche PDF
+            {pdfEnCours ? "Préparation du PDF…" : "↓ Télécharger la fiche PDF"}
           </button>
           <UsageOutilButton ficheNom={fiche.nom} ficheSlug={fiche.slug} userId={userId} />
         </div>

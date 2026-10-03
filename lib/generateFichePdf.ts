@@ -1,37 +1,280 @@
+/**
+ * Génération du PDF d'une fiche.
+ *
+ * Le PDF est produit par le navigateur lui-même (window.print() dans une iframe
+ * cachée, puis « Enregistrer au format PDF »), sans librairie de rendu.
+ *
+ * Ce que ce module garantit :
+ *  - le nom de fichier proposé par le navigateur reprend le nom de l'outil
+ *    (les navigateurs se basent sur le titre du document imprimé, et Chrome sur
+ *    celui de la page parente : on positionne donc les deux le temps du dialogue)
+ *  - les illustrations de la fiche et les images d'étapes du déroulé sont
+ *    intégrées
+ *  - les liens restent cliquables dans le PDF et leur URL est affichée en clair
+ *    (utile une fois la fiche imprimée)
+ *  - les ressources complémentaires (PDF du bucket `fiches-pdf`) sont ajoutées
+ *    à la suite de la fiche, page par page, grâce à pdf.js. Si un document ne
+ *    peut pas être lu (réseau, fichier illisible, trop de pages), il reste
+ *    listé avec son URL dans la section « Ressources complémentaires ».
+ */
+
+type RessourceEntree = { nom?: string; url?: string };
+
+interface Annexe {
+  nom: string;
+  url: string;
+  /** URLs blob des pages rendues en image (vide si le PDF n'a pas pu être lu) */
+  pages: string[];
+  /** true si toutes les pages n'ont pas pu être intégrées */
+  tronquee: boolean;
+}
+
+/** Nombre total de pages d'annexes au-delà duquel on arrête d'intégrer (poids du PDF) */
+const MAX_PAGES_ANNEXES = 60;
+/** Largeur de rendu d'une page d'annexe, en pixels (environ 195 dpi sur 182 mm utiles) */
+const LARGEUR_RENDU_PX = 1400;
+const DELAI_TELECHARGEMENT_MS = 20000;
+const DELAI_IMAGES_MS = 15000;
+
+let generationEnCours = false;
+
+function escapeHtml(valeur: unknown): string {
+  return String(valeur ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Décode les entités qu'un éditeur de texte riche écrit dans un attribut href */
+function decodeEntites(valeur: string): string {
+  return valeur
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function urlComparable(url: string): string {
+  return url.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "").toLowerCase();
+}
+
+/** Nom de fichier proposé par le navigateur : le nom de l'outil, sans caractères interdits */
+function titrePourFichier(nom: string): string {
+  return nom.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim() || "Fiche";
+}
+
+function parseListe(valeur: unknown): any[] {
+  if (Array.isArray(valeur)) return valeur;
+  if (typeof valeur === "string" && valeur.trim()) {
+    try {
+      const parsed = JSON.parse(valeur);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+/**
+ * Nettoie le HTML de l'éditeur pour l'impression. Les liens sont conservés
+ * (cliquables dans le PDF) et suivis de leur URL entre parenthèses, sauf quand
+ * le texte du lien est déjà l'URL.
+ */
+function strip(html: string): string {
+  if (!html) return "";
+  const liens: string[] = [];
+  const avecJetons = html.replace(
+    /<a\s+[^>]*?href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    (_m, href: string, contenu: string) => {
+      const url = decodeEntites(href).trim();
+      const texte = contenu.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+      if (!url || /^(javascript|data):/i.test(url)) return texte;
+      const texteEstUrl = !texte || urlComparable(decodeEntites(texte)) === urlComparable(url);
+      const hrefAttr = escapeHtml(url);
+      const markup = texteEstUrl
+        ? `<a class="lien" href="${hrefAttr}">${escapeHtml(url)}</a>`
+        : `<a class="lien" href="${hrefAttr}">${texte}</a> <span class="lien-url">(${escapeHtml(url)})</span>`;
+      liens.push(markup);
+      return `\u0000${liens.length - 1}\u0000`;
+    }
+  );
+  const nettoye = avecJetons
+    .replace(/<br\s*\/?>/gi, "<br>")
+    .replace(/<\/p>/gi, "<br>")
+    .replace(/<(?!br|strong|em|\/strong|\/em|\/li|li|ul|\/ul|ol|\/ol)[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/—/g, " :")
+    .trim();
+  return nettoye.replace(/\u0000(\d+)\u0000/g, (_m, i) => liens[Number(i)] || "");
+}
+
+/* ------------------------------------------------------------------ */
+/* Ressources complémentaires : lecture des PDF et rendu en images     */
+/* ------------------------------------------------------------------ */
+
+async function telechargerPdf(url: string): Promise<Uint8Array | null> {
+  const controleur = new AbortController();
+  const minuteur = setTimeout(() => controleur.abort(), DELAI_TELECHARGEMENT_MS);
+  try {
+    const reponse = await fetch(url, { signal: controleur.signal, mode: "cors" });
+    if (!reponse.ok) return null;
+    const octets = new Uint8Array(await reponse.arrayBuffer());
+    // Signature d'un fichier PDF : « %PDF- »
+    const entete = String.fromCharCode(...Array.from(octets.slice(0, 5)));
+    return entete === "%PDF-" ? octets : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+
+/**
+ * pdf.js est servi depuis `public/pdfjs/` (copie faite par
+ * `scripts/copier-pdfjs.mjs` à l'installation) et chargé par un `import()`
+ * natif du navigateur : le bundler de Next.js ne sait pas traiter
+ * `import.meta` dans les fichiers de pdf.js. Le `webpackIgnore` ci-dessous
+ * est indispensable, sinon webpack tente de l'empaqueter et le build échoue.
+ */
+const PDFJS_BASE = "/pdfjs/";
+type PdfJs = typeof import("pdfjs-dist");
+let pdfjsPromise: Promise<PdfJs> | null = null;
+
+function chargerPdfJs(): Promise<PdfJs> {
+  if (!pdfjsPromise) {
+    const url = `${PDFJS_BASE}pdf.min.mjs`;
+    pdfjsPromise = import(/* webpackIgnore: true */ url).then((module: PdfJs) => {
+      module.GlobalWorkerOptions.workerSrc = `${PDFJS_BASE}pdf.worker.min.mjs`;
+      return module;
+    });
+    pdfjsPromise.catch(() => { pdfjsPromise = null; });
+  }
+  return pdfjsPromise;
+}
+
+async function rendrePagesPdf(octets: Uint8Array, budgetPages: number): Promise<{ pages: string[]; total: number }> {
+  const pdfjs = await chargerPdfJs();
+  const tache = pdfjs.getDocument({
+    data: octets,
+    wasmUrl: `${PDFJS_BASE}wasm/`,
+    iccUrl: `${PDFJS_BASE}iccs/`,
+    standardFontDataUrl: `${PDFJS_BASE}standard_fonts/`,
+  });
+  const document_ = await tache.promise;
+  const total = document_.numPages;
+  const pages: string[] = [];
+  const canvas = document.createElement("canvas");
+  try {
+    const nombre = Math.min(total, budgetPages);
+    for (let i = 1; i <= nombre; i++) {
+      const page = await document_.getPage(i);
+      const base = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: LARGEUR_RENDU_PX / base.width });
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      await page.render({ canvas, viewport, background: "#ffffff" }).promise;
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+      page.cleanup();
+      if (!blob) break;
+      pages.push(URL.createObjectURL(blob));
+    }
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+    await tache.destroy();
+  }
+  return { pages, total };
+}
+
+async function preparerAnnexes(ressources: RessourceEntree[]): Promise<Annexe[]> {
+  const annexes: Annexe[] = [];
+  let budget = MAX_PAGES_ANNEXES;
+  for (let i = 0; i < ressources.length; i++) {
+    const ressource = ressources[i];
+    const url = typeof ressource?.url === "string" ? ressource.url.trim() : "";
+    if (!url) continue;
+    const nom = (ressource.nom || "").trim() || `Document ${i + 1}`;
+    const annexe: Annexe = { nom, url, pages: [], tronquee: false };
+    annexes.push(annexe);
+    if (budget <= 0) {
+      annexe.tronquee = true;
+      continue;
+    }
+    try {
+      const octets = await telechargerPdf(url);
+      if (!octets) continue;
+      const { pages, total } = await rendrePagesPdf(octets, budget);
+      annexe.pages = pages;
+      annexe.tronquee = pages.length < total;
+      budget -= pages.length;
+    } catch (erreur) {
+      console.warn("Ressource complémentaire non intégrée au PDF :", url, erreur);
+    }
+  }
+  return annexes;
+}
+
+async function attendreImages(doc: Document): Promise<void> {
+  await Promise.all(
+    Array.from(doc.images).map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete) return resolve();
+          const fin = () => resolve();
+          img.addEventListener("load", fin, { once: true });
+          img.addEventListener("error", fin, { once: true });
+          setTimeout(fin, DELAI_IMAGES_MS);
+        })
+    )
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Point d'entrée                                                      */
+/* ------------------------------------------------------------------ */
+
 export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?: string }[]) {
+  if (generationEnCours) return;
+  generationEnCours = true;
+  try {
+    await genererEtImprimer(fiche, cles);
+  } finally {
+    generationEnCours = false;
+  }
+}
+
+async function genererEtImprimer(fiche: any, clesParam?: { nom: string; emoji?: string }[]) {
   console.log("PDF generation started", fiche.nom);
 
   const duree = fiche.duree_libre || (fiche.duree_min && fiche.duree_max && fiche.duree_min !== fiche.duree_max
     ? `${fiche.duree_min} – ${fiche.duree_max} min`
     : fiche.duree_min ? `${fiche.duree_min} min` : "");
 
-  const deroule = Array.isArray(fiche.deroule) ? fiche.deroule : [];
-  const conseils = Array.isArray(fiche.conseils) ? fiche.conseils : [];
-  const variantes = Array.isArray(fiche.variantes) ? fiche.variantes : [];
-  const materielListe = Array.isArray(fiche.materiel_liste) ? fiche.materiel_liste : [];
-  const objectifs = Array.isArray(fiche.objectifs) ? fiche.objectifs : [];
+  const deroule = parseListe(fiche.deroule);
+  const conseils = parseListe(fiche.conseils);
+  const variantes = parseListe(fiche.variantes);
+  const materielListe = parseListe(fiche.materiel_liste);
+  const objectifs = parseListe(fiche.objectifs);
+  const cles = Array.isArray(clesParam) ? clesParam : parseListe(fiche.cles);
+  const illustrations: string[] = parseListe(fiche.illustrations).filter((u) => typeof u === "string" && u.trim());
+  const ressources: RessourceEntree[] = parseListe(fiche.pdfs_complementaires).filter((r) => r && typeof r === "object");
 
-  function strip(html: string): string {
-    if (!html) return "";
-    return html
-      .replace(/<a\s+[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '$2')
-      .replace(/<br\s*\/?>/gi, "<br>")
-      .replace(/<\/p>/gi, "<br>")
-      .replace(/<\/li>/gi, "</li>")
-      .replace(/<(?!br|strong|em|\/strong|\/em|\/li|li|ul|\/ul|ol|\/ol)[^>]*>/g, "")
-      .replace(/&nbsp;/g, " ")
-      .replace(/—/g, " :")
-      .trim();
-  }
+  // Les ressources complémentaires sont lues et rendues avant de construire le document
+  const annexes = await preparerAnnexes(ressources);
 
   // === DATA PREP ===
-  const infoItems: any[] = [];
+  const infoItems: { label: string; value: string }[] = [];
   if (duree) infoItems.push({ label: "DURÉE", value: duree });
   if (fiche.format) infoItems.push({ label: "FORMAT", value: fiche.format });
   if (fiche.participants) infoItems.push({ label: "PARTICIPANTS", value: fiche.participants });
-  if (fiche.materiel_niveau) infoItems.push({ label: "MATÉRIEL", value: fiche.materiel_niveau });
+  const materiel = fiche.materiel_niveau || fiche.materiel;
+  if (materiel) infoItems.push({ label: "MATÉRIEL", value: materiel });
 
-  const infoGridHtml = infoItems.length ? infoItems.map((item: any) => `
+  const infoGridHtml = infoItems.length ? infoItems.map((item) => `
     <td class="info-cell" valign="middle">
       <div class="info-label">${item.label}</div>
       <div class="info-value">${item.value}</div>
@@ -39,15 +282,21 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
   `).join("") : "";
 
   const metaParts: string[] = [];
-  if (fiche.public_cible) metaParts.push(`<span class="meta-label">POUR QUI ?</span> ${fiche.public_cible}`);
+  const pourQui = fiche.public_cible || fiche.pour_qui;
+  if (pourQui) metaParts.push(`<span class="meta-label">POUR QUI ?</span> ${pourQui}`);
   if (fiche.source) metaParts.push(`<span class="meta-label">SOURCE</span> ${fiche.source}`);
   const metaRow = metaParts.join("&nbsp;&nbsp;&nbsp;");
 
-  const clesHtml = (cles && cles.length) ? cles.map((c: any) => `<span class="cle-badge">${c.emoji || "🔑"} ${c.nom}</span>`).join("") : "";
+  const illustrationsHtml = illustrations.length ? `
+    <div class="illustrations">
+      ${illustrations.map((url, i) => `<img class="illustration" src="${escapeHtml(url)}" alt="Illustration ${i + 1}">`).join("\n")}
+    </div>` : "";
+
+  const clesHtml = cles.length ? cles.map((c: any) => `<span class="cle-badge">${c.emoji || "🔑"} ${c.nom}</span>`).join("") : "";
 
   const objectifsHtml = objectifs.map((obj: any) => {
-    const titre = typeof obj === "string" ? obj : (obj.titre || obj.text || "");
-    const detail = typeof obj === "string" ? "" : (obj.detail || obj.description || "");
+    const titre = typeof obj === "string" ? obj : (obj.titre || obj.title || obj.objectif || obj.text || "");
+    const detail = typeof obj === "string" ? "" : (obj.détail || obj.detail || obj.description || "");
     return titre ? `
       <div class="objectif-item">
         <div class="objectif-title">→ <strong>${strip(titre)}</strong></div>
@@ -63,6 +312,9 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
       const text = typeof a === "string" ? a : (a.text || "");
       return text ? `<li>${strip(text)}</li>` : "";
     }).filter(Boolean).join("\n");
+    const imageHtml = typeof s.image_url === "string" && s.image_url.trim()
+      ? `<img class="etape-image" src="${escapeHtml(s.image_url.trim())}" alt="Illustration de l'étape ${i + 1}">`
+      : "";
 
     return `
       <div class="etape-card">
@@ -72,16 +324,17 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
           ${dureeS ? `<div class="etape-duree">${dureeS}</div>` : ""}
         </div>
         ${actionsHtml ? `<ul class="etape-actions">${actionsHtml}</ul>` : ""}
+        ${imageHtml}
       </div>`;
   }).join("\n");
 
   const conseilsHtml = conseils.map((c: any) => {
-    const text = typeof c === "string" ? c : (c.text || c.conseil || "");
+    const text = typeof c === "string" ? c : (c.text || c.conseil || c.titre || "");
     return text ? `<li>→ ${strip(text)}</li>` : "";
   }).filter(Boolean).join("\n");
 
   const variantesHtml = variantes.map((v: any) => {
-    const text = typeof v === "string" ? v : (v.text || v.variante || "");
+    const text = typeof v === "string" ? v : (v.text || v.variante || v.titre || "");
     return text ? `<li>· ${strip(text)}</li>` : "";
   }).filter(Boolean).join("\n");
 
@@ -90,14 +343,35 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
     return text ? `<li>${strip(text)}</li>` : "";
   }).filter(Boolean).join("\n");
 
+  // Liste des ressources complémentaires (toujours présente, avec l'URL de chaque document)
+  const ressourcesHtml = annexes.length ? annexes.map((a) => `
+    <li class="ressource-item">
+      <a class="lien" href="${escapeHtml(a.url)}"><strong>${escapeHtml(a.nom)}</strong></a>
+      <span class="ressource-etat">${a.pages.length ? "(jointe à la suite de cette fiche)" : "(à télécharger en ligne)"}</span>
+      <div class="lien-url">${escapeHtml(a.url)}</div>
+    </li>`).join("\n") : "";
+
+  // Pages des ressources complémentaires, ajoutées après la fiche
+  const annexesHtml = annexes.filter((a) => a.pages.length).map((a) => `
+    <section class="annexe">
+      <div class="annexe-header">
+        <span class="annexe-label">RESSOURCE COMPLÉMENTAIRE</span>
+        <span class="annexe-nom">${escapeHtml(a.nom)}</span>
+        <a class="annexe-url" href="${escapeHtml(a.url)}">${escapeHtml(a.url)}</a>
+      </div>
+      ${a.pages.map((src, i) => `<img class="annexe-page" src="${src}" alt="${escapeHtml(a.nom)}, page ${i + 1}">`).join("\n")}
+      ${a.tronquee ? `<p class="annexe-note">Document tronqué dans ce PDF : la version complète est disponible à l'adresse ci-dessus.</p>` : ""}
+    </section>`).join("\n");
+
   const ficheNom = fiche.nom || "Fiche";
+  const titreFichier = titrePourFichier(ficheNom);
 
   // === FULL HTML DOCUMENT (for iframe print) ===
   const html = `<!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>${ficheNom} – Lit uP</title>
+  <title>${escapeHtml(titreFichier)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
   <style>
@@ -125,6 +399,10 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
         print-color-adjust: exact;
       }
     }
+
+    /* ===== LIENS ===== */
+    a.lien { color: #007479; text-decoration: underline; text-underline-offset: 2px; }
+    .lien-url { font-size: 0.85em; color: #6b7280; word-break: break-all; }
 
     /* ===== HEADER ===== */
     .pdf-header {
@@ -169,6 +447,17 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
     /* ===== META ===== */
     .meta-row { margin-bottom: 14px; font-size: 12px; }
     .meta-label { font-size: 9px; font-weight: 700; color: #6b7280; letter-spacing: 0.06em; margin-right: 6px; }
+
+    /* ===== ILLUSTRATIONS ===== */
+    .illustrations {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(45%, 1fr));
+      gap: 8px; margin: 0 0 16px;
+    }
+    .illustration {
+      display: block; width: 100%; max-height: 75mm; object-fit: contain;
+      border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;
+      break-inside: avoid;
+    }
 
     /* ===== ENCADRÉ INTENTION (bleu) ===== */
     .box-intention {
@@ -251,6 +540,11 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
     .etape-actions li::before {
       content: "•"; position: absolute; left: 4px; color: #00989D; font-weight: 700;
     }
+    .etape-image {
+      display: block; width: 100%; max-height: 100mm; object-fit: contain;
+      margin-top: 10px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff;
+      break-inside: avoid;
+    }
 
     /* ===== CONSEILS ===== */
     .conseils-box { background: #F6F6F8; border-radius: 10px; padding: 14px 18px; }
@@ -274,6 +568,17 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
       padding: 3px 10px; border-radius: 10px; margin: 0 4px 4px 0;
     }
 
+    /* ===== RESSOURCES COMPLÉMENTAIRES (liste) ===== */
+    .ressources-list {
+      background: #F6F6F8; border-radius: 10px; padding: 4px 0; list-style: none; margin: 0;
+    }
+    .ressource-item {
+      padding: 8px 16px; border-bottom: 1px solid #e5e7eb; font-size: 13px; line-height: 1.5;
+    }
+    .ressource-item:last-child { border-bottom: none; }
+    .ressource-item a.lien strong { color: #007479; }
+    .ressource-etat { font-size: 11px; color: #6b7280; margin-left: 6px; }
+
     /* ===== CLOSING + FOOTER ===== */
     .pdf-closing {
       margin-top: 28px; padding-top: 12px;
@@ -285,6 +590,23 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
       border-top: 1px solid #e5e7eb; padding-top: 8px; text-align: center;
     }
     .pdf-footer .footer-center { color: #00989D; font-style: italic; }
+
+    /* ===== ANNEXES (pages des ressources complémentaires) ===== */
+    .annexe { break-before: page; }
+    .annexe-header {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+      font-size: 11px; color: #6b7280; margin-bottom: 6px;
+      padding-bottom: 6px; border-bottom: 1px solid #e5e7eb;
+    }
+    .annexe-label { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: #007479; }
+    .annexe-nom { font-weight: 700; color: #2B3442; }
+    .annexe-url { color: #6b7280; text-decoration: none; word-break: break-all; }
+    .annexe-page {
+      display: block; width: 100%; max-height: 250mm; object-fit: contain;
+      margin: 0 auto; break-inside: avoid;
+    }
+    .annexe-page + .annexe-page { break-before: page; }
+    .annexe-note { font-size: 11px; font-style: italic; color: #6b7280; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -299,6 +621,7 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
   ${fiche.source ? `<p class="pdf-source">Source : ${fiche.source}</p>` : ""}
   ${infoGridHtml ? `<table class="info-table"><tr>${infoGridHtml}</tr></table>` : ""}
   ${metaRow ? `<div class="meta-row">${metaRow}</div>` : ""}
+  ${illustrationsHtml}
 
   ${fiche.intention ? `
     <div class="box-intention"><div class="box-intention-inner">
@@ -320,9 +643,12 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
   ${derouleHtml ? `<div class="section-heading"><span class="section-icon">👣</span>Le déroulé, étape par étape</div>${derouleHtml}` : ""}
   ${conseilsHtml ? `<div class="section-heading"><span class="section-icon">💬</span>Conseils pour bien animer</div><div class="conseils-box"><ul class="conseils-list">${conseilsHtml}</ul></div>` : ""}
   ${variantesHtml ? `<div class="section-heading"><span class="section-icon">🔄</span>Variantes possibles</div><div class="variantes-box"><ul class="variantes-list">${variantesHtml}</ul></div>` : ""}
+  ${ressourcesHtml ? `<div class="section-heading"><span class="section-icon">📎</span>Ressources complémentaires</div><ul class="ressources-list">${ressourcesHtml}</ul>` : ""}
 
-  <div class="pdf-closing">Fiche issue de la Boîte à Outils Lit uP — ressources pour l'engagement des jeunes.</div>
-  <div class="pdf-footer">Lit uP · ${ficheNom} <span class="footer-center">— faite pour être partagée</span></div>
+  <div class="pdf-closing">Fiche issue de la Boîte à outils Lit uP, ressources pour l'engagement des jeunes.</div>
+  <div class="pdf-footer">Lit uP · ${ficheNom} <span class="footer-center">· faite pour être partagée</span></div>
+
+  ${annexesHtml}
 </body>
 </html>`;
 
@@ -330,26 +656,61 @@ export async function generateFichePdf(fiche: any, cles?: { nom: string; emoji?:
   const iframe = document.createElement("iframe");
   iframe.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;height:600px;border:none;opacity:0;";
 
-  // Use srcdoc + onload for reliable resource loading (fonts, images)
-  await new Promise<void>((resolve, reject) => {
-    iframe.onload = () => resolve();
-    iframe.onerror = () => reject(new Error("Iframe failed to load"));
-    iframe.srcdoc = html;
-    document.body.appendChild(iframe);
-  });
+  let nettoye = false;
+  const nettoyer = () => {
+    if (nettoye) return;
+    nettoye = true;
+    try { document.body.removeChild(iframe); } catch {}
+    annexes.forEach((a) => a.pages.forEach((url) => URL.revokeObjectURL(url)));
+  };
 
-  // Extra safety: wait for fonts inside iframe
-  const w = iframe.contentWindow;
-  if (w) {
+  try {
+    // Use srcdoc + onload for reliable resource loading (fonts, images)
+    await new Promise<void>((resolve, reject) => {
+      iframe.onload = () => resolve();
+      iframe.onerror = () => reject(new Error("Iframe failed to load"));
+      iframe.srcdoc = html;
+      document.body.appendChild(iframe);
+    });
+
+    const w = iframe.contentWindow;
+    if (!w) throw new Error("Iframe window unavailable");
+
+    // Fonts and images must be loaded before the print dialog opens
     await (w.document.fonts?.ready || Promise.resolve());
+    await attendreImages(w.document);
     // Two animation frames to ensure paint is complete
     await new Promise<void>((r) => w.requestAnimationFrame(() => w.requestAnimationFrame(() => setTimeout(r, 150))));
+
+    // Nom de fichier : Chrome reprend le titre de la page parente, les autres
+    // navigateurs celui du document imprimé. On positionne les deux le temps
+    // du dialogue, puis on restaure le titre de l'application.
+    const titreInitial = document.title;
+    let titreRestaure = false;
+    const restaurerTitre = () => {
+      if (titreRestaure) return;
+      titreRestaure = true;
+      if (document.title === titreFichier) document.title = titreInitial;
+    };
+    document.title = titreFichier;
+    w.addEventListener("afterprint", () => {
+      restaurerTitre();
+      // Laisser le temps au navigateur de finir d'utiliser le document imprimé
+      setTimeout(nettoyer, 1000);
+    }, { once: true });
+
+    try {
+      w.print();
+    } catch (erreur) {
+      restaurerTitre();
+      throw erreur;
+    }
+    // Sur ordinateur, print() est bloquant : on arrive ici après la fermeture
+    // du dialogue. Sur mobile il rend la main tout de suite, d'où les délais.
+    setTimeout(restaurerTitre, 1500);
+    setTimeout(nettoyer, 60000);
+  } catch (erreur) {
+    nettoyer();
+    throw erreur;
   }
-
-  w?.print();
-
-  // Clean up after print dialog closes
-  setTimeout(() => {
-    try { document.body.removeChild(iframe); } catch {}
-  }, 3000);
 }
