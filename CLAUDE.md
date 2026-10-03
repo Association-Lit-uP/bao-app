@@ -540,6 +540,27 @@ relancer un build avec le bon auteur. On n'amende pas l'historique.
   Claude voyait les bonnes couleurs sur la photo mais ne savait pas les mapper.
   Correctif : construire `c1` à `c4` depuis `customColorLabels`.
 
+### Formulaire des fiches (admin)
+
+- **Modifications perdues à l'enregistrement** (symptôme : un lien ajouté
+  dans un champ de texte riche disparaît après « Enregistrer ») :
+  `RichTextEditor` ne remontait son contenu au formulaire qu'au `blur`. Or
+  sur Safari (et Firefox sur Mac), cliquer sur un `<button>` ne retire pas le
+  focus de la zone éditable, donc le `blur` n'arrive jamais avant la
+  sauvegarde. Correctif : `onInput={emit}` plus un `emit()` après chaque
+  commande de la barre d'outils (lien, gras, couleur...). Ne jamais se reposer
+  sur le seul `blur` pour synchroniser un champ.
+- Un échec d'upload vers Storage (`fiches-images`, `fiches-pdf`) n'était
+  visible que dans la console : il s'affiche maintenant sous le bouton
+  d'ajout (`uploadError`). Un `update` Supabase bloqué par le RLS ne renvoie
+  pas d'erreur non plus (zéro ligne modifiée) : en cas de doute, vérifier la
+  ligne dans le Table Editor.
+- La page `/bao` charge les fiches au montage. Revenir dessus par le bouton
+  « Précédent » peut restaurer la page depuis le cache du navigateur (bfcache)
+  sans recharger : on écoute `pageshow` avec `persisted` pour relancer le
+  chargement. Un onglet BAO resté ouvert pendant l'édition dans l'admin
+  doit, lui, être rechargé à la main.
+
 ### PDF des fiches et pdf.js
 
 - **pdf.js et Next.js** : `import("pdfjs-dist")` fait échouer `next build`

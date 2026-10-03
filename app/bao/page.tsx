@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -96,44 +96,52 @@ export default function BaoPage() {
     try { sessionStorage.setItem("bao_welcome_seen", "1"); } catch {}
   }
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [fichesData, clesData, etapesData, objectifsData, objFichesMap] = await Promise.all([
-          getFiches(), getCles(), getEtapes(), getObjectifs(), getObjectifsFichesMap(),
-        ]);
-        const fichesWithMeta = await Promise.all(
-          fichesData.map(async (f) => {
-            const [ficheCles, etape] = await Promise.all([
-              getClesByFiche(f.id),
-              f.etape_id ? getEtapeById(f.etape_id) : Promise.resolve(null),
-            ]);
-            return { ...f, fichesCles: ficheCles, etape };
-          })
-        );
-        setFiches(fichesWithMeta);
-        setCles(clesData);
-        setEtapes(etapesData);
-        setObjectifs(objectifsData);
-        setObjectifsFichesMap(objFichesMap);
+  const loadData = useCallback(async () => {
+    try {
+      const [fichesData, clesData, etapesData, objectifsData, objFichesMap] = await Promise.all([
+        getFiches(), getCles(), getEtapes(), getObjectifs(), getObjectifsFichesMap(),
+      ]);
+      const fichesWithMeta = await Promise.all(
+        fichesData.map(async (f) => {
+          const [ficheCles, etape] = await Promise.all([
+            getClesByFiche(f.id),
+            f.etape_id ? getEtapeById(f.etape_id) : Promise.resolve(null),
+          ]);
+          return { ...f, fichesCles: ficheCles, etape };
+        })
+      );
+      setFiches(fichesWithMeta);
+      setCles(clesData);
+      setEtapes(etapesData);
+      setObjectifs(objectifsData);
+      setObjectifsFichesMap(objFichesMap);
 
-        // Auto-sélectionner les clés en alerte depuis l'URL
-        const alertesParam = new URLSearchParams(window.location.search).get("alertes");
-        if (alertesParam && clesData.length > 0) {
-          const cleNames = alertesParam.split(",").filter(Boolean);
-          const matchedIds = clesData
-            .filter((c: any) => cleNames.some((name) => c.nom.toLowerCase().includes(name.toLowerCase())))
-            .map((c: any) => c.id);
-          if (matchedIds.length > 0) setActiveCles(matchedIds);
-        }
-      } catch (err) {
-        console.error("Erreur chargement données:", err);
-      } finally {
-        setLoading(false);
+      // Auto-sélectionner les clés en alerte depuis l'URL
+      const alertesParam = new URLSearchParams(window.location.search).get("alertes");
+      if (alertesParam && clesData.length > 0) {
+        const cleNames = alertesParam.split(",").filter(Boolean);
+        const matchedIds = clesData
+          .filter((c: any) => cleNames.some((name) => c.nom.toLowerCase().includes(name.toLowerCase())))
+          .map((c: any) => c.id);
+        if (matchedIds.length > 0) setActiveCles(matchedIds);
       }
+    } catch (err) {
+      console.error("Erreur chargement données:", err);
+    } finally {
+      setLoading(false);
     }
-    loadData();
   }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Au retour par le bouton « Précédent », le navigateur peut restaurer la page
+  // depuis son cache (bfcache) sans rejouer les effets : on recharge alors les
+  // données pour voir les fiches modifiées entre-temps dans l'admin.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) loadData(); };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [loadData]);
 
   /* ── Objectif selection (mode objectifs) ── */
   const selectObjectif = (obj: Objectif) => {

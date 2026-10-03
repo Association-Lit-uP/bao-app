@@ -33,10 +33,24 @@ export default function RichTextEditor({ value, onChange, placeholder, rows = 4 
     }
   }, [value]);
 
+  /**
+   * Transmet le contenu courant au parent. Appelé à chaque saisie, après
+   * chaque commande de la barre d'outils et au blur. Ne pas se contenter du
+   * blur : sur Safari, cliquer sur « Enregistrer » ne retire pas le focus de
+   * la zone éditable, et les dernières modifications étaient perdues.
+   */
+  const emit = useCallback(() => {
+    if (!editorRef.current) return;
+    const html = editorRef.current.innerHTML;
+    lastValueRef.current = html;
+    onChange(html);
+  }, [onChange]);
+
   const exec = useCallback((command: string, val?: string) => {
     editorRef.current?.focus();
     document.execCommand(command, false, val);
-  }, []);
+    emit();
+  }, [emit]);
 
   const insertTextAtCursor = useCallback((text: string) => {
     editorRef.current?.focus();
@@ -51,7 +65,8 @@ export default function RichTextEditor({ value, onChange, placeholder, rows = 4 
       sel.removeAllRanges();
       sel.addRange(range);
     }
-  }, []);
+    emit();
+  }, [emit]);
 
   const insertLink = useCallback(() => {
     const sel = window.getSelection();
@@ -72,20 +87,14 @@ export default function RichTextEditor({ value, onChange, placeholder, rows = 4 
       // Pas de sélection : on insère un nouveau lien
       document.execCommand("insertHTML", false, `<a href="${url}" target="_blank" rel="noopener">${text}</a>&nbsp;`);
     }
-  }, []);
+    emit();
+  }, [emit]);
 
   const removeLink = useCallback(() => {
     editorRef.current?.focus();
     document.execCommand("unlink", false);
-  }, []);
-
-  const handleBlur = useCallback(() => {
-    if (editorRef.current) {
-      const html = editorRef.current.innerHTML;
-      lastValueRef.current = html;
-      onChange(html);
-    }
-  }, [onChange]);
+    emit();
+  }, [emit]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     e.preventDefault();
@@ -193,7 +202,8 @@ export default function RichTextEditor({ value, onChange, placeholder, rows = 4 
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
-        onBlur={handleBlur}
+        onInput={emit}
+        onBlur={emit}
         onPaste={handlePaste}
         style={{
           padding: "10px 14px",
