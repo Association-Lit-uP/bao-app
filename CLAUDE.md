@@ -4,7 +4,7 @@
 > intervient sur `lit-up-fr/bao-app`. À lire avant la première contribution,
 > à relire avant une grosse modif, à mettre à jour après chaque session.
 >
-> Dernière mise à jour : 22 septembre 2026.
+> Dernière mise à jour : 3 octobre 2026.
 
 ---
 
@@ -143,7 +143,12 @@ lib/
 ├── auth-server.ts          # getServerAuthContext(), authentification des routes API
 ├── analytics.ts            # journalisation d'usage (fire & forget)
 ├── impactSync.ts           # pushImpactEvent() vers Make
-└── generateFichePdf.ts     # génération PDF via window.print()
+└── generateFichePdf.ts     # génération PDF via window.print(), annexes rendues par pdf.js
+
+scripts/
+└── copier-pdfjs.mjs        # copie pdf.js dans public/pdfjs/ à l'installation (postinstall)
+
+public/pdfjs/               # généré par le script ci-dessus, ignoré par Git
 
 supabase/
 ├── migrations/             # migrations SQL horodatées (source de vérité du schéma)
@@ -253,7 +258,17 @@ pas un effet de bord.
   mai 2026, ne les réintroduis pas (sauf champ emoji éditorial des clés).
 - Alias d'import : `@/` pointe sur la racine (`@/lib/auth`, `@/components/...`).
 - Les PDF sont générés via `window.print()` et une feuille de style dédiée
-  (`lib/generateFichePdf.ts`), pas via une librairie de rendu.
+  (`lib/generateFichePdf.ts`), pas via une librairie de rendu. Le document
+  imprimé intègre les illustrations et images d'étapes, garde les liens
+  cliquables en affichant leur URL entre parenthèses, et ajoute à la suite de
+  la fiche les pages des ressources complémentaires (`pdfs_complementaires`),
+  rendues en images par pdf.js. Le nom de fichier proposé par le navigateur
+  est le nom de l'outil : on positionne le titre de l'iframe **et** celui de
+  la page parente le temps du dialogue d'impression (Chrome lit le second).
+- pdf.js n'est pas empaqueté par webpack : `scripts/copier-pdfjs.mjs` copie le
+  build `legacy` de `pdfjs-dist` dans `public/pdfjs/` à l'installation, et le
+  code le charge à la demande par un `import()` natif marqué
+  `/* webpackIgnore: true */` (voir §8, piège « pdf.js et Next.js »).
 
 ### Routes API
 
@@ -525,6 +540,50 @@ relancer un build avec le bon auteur. On n'amende pas l'historique.
   Claude voyait les bonnes couleurs sur la photo mais ne savait pas les mapper.
   Correctif : construire `c1` à `c4` depuis `customColorLabels`.
 
+### Formulaire des fiches (admin)
+
+- **Modifications perdues à l'enregistrement** (symptôme : un lien ajouté
+  dans un champ de texte riche disparaît après « Enregistrer ») :
+  `RichTextEditor` ne remontait son contenu au formulaire qu'au `blur`. Or
+  sur Safari (et Firefox sur Mac), cliquer sur un `<button>` ne retire pas le
+  focus de la zone éditable, donc le `blur` n'arrive jamais avant la
+  sauvegarde. Correctif : `onInput={emit}` plus un `emit()` après chaque
+  commande de la barre d'outils (lien, gras, couleur...). Ne jamais se reposer
+  sur le seul `blur` pour synchroniser un champ.
+- Un échec d'upload vers Storage (`fiches-images`, `fiches-pdf`) n'était
+  visible que dans la console : il s'affiche maintenant sous le bouton
+  d'ajout (`uploadError`). Un `update` Supabase bloqué par le RLS ne renvoie
+  pas d'erreur non plus (zéro ligne modifiée) : en cas de doute, vérifier la
+  ligne dans le Table Editor.
+- La page `/bao` charge les fiches au montage. Revenir dessus par le bouton
+  « Précédent » peut restaurer la page depuis le cache du navigateur (bfcache)
+  sans recharger : on écoute `pageshow` avec `persisted` pour relancer le
+  chargement. Un onglet BAO resté ouvert pendant l'édition dans l'admin
+  doit, lui, être rechargé à la main.
+
+### PDF des fiches et pdf.js
+
+- **pdf.js et Next.js** : `import("pdfjs-dist")` fait échouer `next build`
+  (`'import.meta' cannot be used outside of module code`), même en import
+  dynamique dans un client component. Correctif : ne pas passer par webpack.
+  `scripts/copier-pdfjs.mjs` copie la librairie dans `public/pdfjs/`
+  (`postinstall`) et `lib/generateFichePdf.ts` la charge par
+  `import(/* webpackIgnore: true */ url)` avec `url` dans une variable (un
+  littéral ferait échouer la résolution TypeScript).
+- **Build `legacy` obligatoire** : le build standard de pdf.js 6 appelle
+  `Map.prototype.getOrInsertComputed`, absent des navigateurs d'avant fin 2025
+  (symptôme : `TypeError: getOrInsertComputed is not a function` et la
+  ressource n'est pas intégrée). Le build `legacy/build/` embarque le polyfill.
+- **Nom du fichier PDF** : Chrome nomme le PDF d'après le titre de la page
+  parente, pas celui de l'iframe imprimée. Il faut changer `document.title`
+  avant `print()` et le restaurer après (`afterprint` plus délai de secours).
+- Les PDF des ressources complémentaires sont lus par `fetch` depuis le bucket
+  public `fiches-pdf` (CORS ouvert). Une URL externe sans CORS, un fichier
+  illisible ou plus de 60 pages cumulées : la ressource reste listée avec son
+  URL, sans bloquer la génération.
+- `.gitignore` ignore tout dossier nommé `build/` : ne pas nommer ainsi un
+  dossier de `public/`.
+
 ### Supabase : CLI et migrations
 
 - **`supabase db push` n'est pas utilisable** tant que l'historique des
@@ -680,6 +739,11 @@ table Airtable et son mapping Make.
 - Mettre à jour les cases à cocher du `README.md` : les phases 2 (contenu),
   3 (authentification) et 4 (dashboard admin) sont livrées mais encore
   affichées comme non faites.
+- **Ressources complémentaires dans le PDF** : elles sont intégrées en images
+  de page (texte non sélectionnable, fichier plus lourd). Si ça devient
+  gênant, l'alternative est une génération côté serveur (Chromium headless
+  plus fusion des PDF avec `pdf-lib`), plus lourde à héberger sur Vercel
+  Hobby. Décideur : Laetitia, selon les retours des pros.
 
 > Cette liste vient du repo et des conversations de travail déjà dépouillées.
 > Si un sujet est décidé ailleurs, reporte-le ici : c'est le rôle de cette
@@ -728,6 +792,7 @@ git log --pretty=format:'%ad | %an | %s' --date=short
 | 19 août 2026 | Laetitia | PWA (PR #5) : manifest `app/manifest.ts`, icônes, métadonnées d'installation. Sans service worker ni notifications push, décision assumée |
 | 11 septembre 2026 | Laetitia | Page publique « La roulette des défis » (PR #6, `/roulette-questions`), avec la redirection `/roulette-defis` pour les QR codes |
 | 22 septembre 2026 | Claude | Ce document de collaboration, avec les conventions, les pièges et les étapes à venir |
+| 3 octobre 2026 | Claude | PDF des fiches : nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite (pdf.js servi depuis `public/pdfjs/`) |
 
 **Convention** : on ajoute une ligne ici quand un jalon est mergé sur `main`
 (une fonctionnalité visible, une migration de schéma, un correctif de
