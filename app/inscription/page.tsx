@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signUp, logAuthError, SignUpData } from "@/lib/auth";
 import Link from "next/link";
+import PasswordInput from "@/components/PasswordInput";
 
 const CATEGORIES_PRO = [
   "Conseiller·ère Mission Locale",
@@ -391,8 +392,7 @@ export default function InscriptionPage() {
                 <label style={labelStyle}>
                   Mot de passe <span style={{ color: "#dc2626" }}>*</span>
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   style={inputStyle}
                   value={form.password}
                   onChange={(e) => updateForm("password", e.target.value)}
@@ -405,8 +405,7 @@ export default function InscriptionPage() {
                   Confirmer le mot de passe{" "}
                   <span style={{ color: "#dc2626" }}>*</span>
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   style={inputStyle}
                   value={form.password_confirm}
                   onChange={(e) =>

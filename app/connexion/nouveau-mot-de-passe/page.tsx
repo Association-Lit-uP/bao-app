@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function NouveauMotDePassePage() {
   const router = useRouter();
@@ -217,8 +218,7 @@ export default function NouveauMotDePassePage() {
                   >
                     Nouveau mot de passe
                   </label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     style={inputStyle}
                     value={password}
                     onChange={(e) => {
@@ -241,8 +241,7 @@ export default function NouveauMotDePassePage() {
                   >
                     Confirmer le nouveau mot de passe
                   </label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     style={inputStyle}
                     value={passwordConfirm}
                     onChange={(e) => {

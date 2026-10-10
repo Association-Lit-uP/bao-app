@@ -134,7 +134,8 @@ app/
     └── admin/save-to-sheet # envoi vers Apps Script
 
 components/                 # composants partagés (AppHeader, Sidebar, FicheCard,
-                            # FicheModal, AuthGuard, RichTextEditor, FavoriButton...)
+                            # FicheModal, AuthGuard, RichTextEditor, FavoriButton,
+                            # PasswordInput : champ mot de passe avec bouton œil...)
 lib/
 ├── supabase.ts             # client navigateur + types métier + authHeaders()
 ├── supabase/client.ts      # client @supabase/ssr (navigateur)
