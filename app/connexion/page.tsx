@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, getProfileByUserId, logAuthError } from "@/lib/auth";
 import Link from "next/link";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function ConnexionPage() {
   const router = useRouter();
@@ -222,8 +223,7 @@ export default function ConnexionPage() {
               >
                 Mot de passe
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 style={inputStyle}
                 value={password}
                 onChange={(e) => {
