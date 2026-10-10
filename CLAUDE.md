@@ -1,10 +1,10 @@
 # CLAUDE.md – Guide de collaboration BAO Lit uP
 
 > Document de référence partagé pour toute personne (ou assistant IA) qui
-> intervient sur `lit-up-fr/bao-app`. À lire avant la première contribution,
+> intervient sur `Association-Lit-uP/bao-app`. À lire avant la première contribution,
 > à relire avant une grosse modif, à mettre à jour après chaque session.
 >
-> Dernière mise à jour : 3 octobre 2026.
+> Dernière mise à jour : 10 octobre 2026.
 
 ---
 
@@ -19,7 +19,7 @@ remobiliser les jeunes de 14 à 25 ans.
 | | |
 |---|---|
 | **Prod** | `bao.lit-up.fr` (Vercel, déploiement auto sur `main`) |
-| **Repo** | `github.com/lit-up-fr/bao-app` (privé) |
+| **Repo** | `github.com/Association-Lit-uP/bao-app` (privé, transféré depuis `lit-up-fr` début octobre 2026) |
 | **Stack** | Next.js 14 App Router · React 18 · TypeScript strict · Tailwind 3 |
 | **Backend** | Supabase (Postgres + Auth + RLS), projet `odadaqpihvcnuprkdchr` |
 | **IA** | SDK Anthropic (`@anthropic-ai/sdk`), corpus lu depuis Google Drive |
@@ -69,7 +69,7 @@ sensibles aux conflits sont `lib/auth.ts`, `app/admin/layout.tsx` et
 Node.js 20 ou plus, npm 10, un accès Supabase et Vercel du projet.
 
 ```bash
-git clone https://github.com/lit-up-fr/bao-app.git
+git clone https://github.com/Association-Lit-uP/bao-app.git
 cd bao-app
 npm install
 cp .env.local.example .env.local   # puis renseigne tes vraies clés
@@ -449,6 +449,22 @@ privé). Correctif : `git config --local user.email "prenom.nom@lit-up.fr"`,
 puis un commit vide (`git commit --allow-empty -m "trigger redeploy"`) pour
 relancer un build avec le bon auteur. On n'amende pas l'historique.
 
+### Vercel ne déploie plus rien depuis le transfert du dépôt
+
+Symptôme : une PR est mergée sur `main`, GitHub ne montre aucun check, et
+Vercel ne lance aucun déploiement (ni preview, ni production). Un déploiement
+lancé à la main depuis l'API échoue en quelques secondes avec `git_info_fail`.
+Cause : le dépôt a été transféré de `lit-up-fr` vers l'organisation GitHub
+`Association-Lit-uP`, mais le projet Vercel `bao-app` est resté lié à
+`lit-up-fr/bao-app`. Constaté le 10 octobre 2026 : la prod était restée sur la
+PR #7 (23 septembre), les PR #8 et #9 n'avaient jamais été déployées.
+Correctif, dans le dashboard Vercel uniquement : projet `bao-app`, Settings,
+Git, « Disconnect », puis « Connect Git Repository » vers
+`Association-Lit-uP/bao-app` (l'app GitHub Vercel est déjà installée sur
+l'organisation, c'est ce qui a été fait pour `litup-outils`). Ensuite
+« Redeploy » sur `main`. Après un merge, vérifier dans Vercel qu'un
+déploiement est bien parti : GitHub seul ne le montre pas.
+
 ### Auth et sécurité
 
 - **Le profil est créé par un trigger serveur**, pas par un `INSERT` client.
@@ -696,6 +712,11 @@ table Airtable et son mapping Make.
 
 #### Priorité 3 : mise en ligne
 
+- **Urgent** : relier le projet Vercel `bao-app` au dépôt
+  `Association-Lit-uP/bao-app` (§8, piège « Vercel ne déploie plus rien »),
+  puis redéployer `main`. Tant que ce n'est pas fait, rien de ce qui est mergé
+  depuis le 23 septembre 2026 n'est en prod. Décideur : Laetitia, dans le
+  dashboard Vercel.
 - Finaliser le domaine personnalisé `bao.lit-up.fr`.
 
 #### Sécurité, à traiter avant d'ouvrir des accès
@@ -731,7 +752,7 @@ table Airtable et son mapping Make.
 - **Réactiver ou non la confirmation d'email Auth**, et donc déployer
   `send-welcome-email` (§8). Décideur : l'Owner du projet Supabase.
 - **Migrer le PAT GitHub classic vers un token fine-grained** limité au seul
-  repo `lit-up-fr/bao-app`, plus sûr que le scope `repo` complet.
+  repo `Association-Lit-uP/bao-app`, plus sûr que le scope `repo` complet.
   Décideur : Laetitia.
 - Héberger dans la BAO les **questionnaires jeunes** (autodétermination).
 - Sort des sections **Parcours** et **Étapes** de l'admin : elles sont
@@ -794,6 +815,7 @@ git log --pretty=format:'%ad | %an | %s' --date=short
 | 11 septembre 2026 | Laetitia | Page publique « La roulette des défis » (PR #6, `/roulette-questions`), avec la redirection `/roulette-defis` pour les QR codes |
 | 22 septembre 2026 | Claude | Ce document de collaboration, avec les conventions, les pièges et les étapes à venir |
 | 3 octobre 2026 | Claude | PDF des fiches : nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite (pdf.js servi depuis `public/pdfjs/`) |
+| 10 octobre 2026 | Claude | Bouton œil pour afficher ou masquer le mot de passe sur tous les champs (PR #9, composant `components/PasswordInput.tsx`) |
 
 **Convention** : on ajoute une ligne ici quand un jalon est mergé sur `main`
 (une fonctionnalité visible, une migration de schéma, un correctif de
@@ -900,7 +922,7 @@ corrige alors le document dans la foulée.
 depuis un outil qui ne lit pas ce fichier.
 
 ```
-Récap pour le CLAUDE.md de lit-up-fr/bao-app.
+Récap pour le CLAUDE.md de Association-Lit-uP/bao-app.
 
 Relis notre conversation et sors uniquement ce qui mérite d'être écrit dans le
 CLAUDE.md du repo. Ne reprends que ce qui a été dit ici : n'invente rien et ne
