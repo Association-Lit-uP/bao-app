@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, getProfileByUserId, logAuthError } from "@/lib/auth";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function ConnexionPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -222,17 +224,52 @@ export default function ConnexionPage() {
               >
                 Mot de passe
               </label>
-              <input
-                type="password"
-                style={inputStyle}
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError("");
-                }}
-                placeholder="Votre mot de passe"
-                onKeyDown={(e) => e.key === "Enter" && handleSubmit(e)}
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  style={{ ...inputStyle, paddingRight: "44px" }}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  placeholder="Votre mot de passe"
+                  onKeyDown={(e) => e.key === "Enter" && handleSubmit(e)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={
+                    showPassword
+                      ? "Masquer le mot de passe"
+                      : "Afficher le mot de passe"
+                  }
+                  title={
+                    showPassword
+                      ? "Masquer le mot de passe"
+                      : "Afficher le mot de passe"
+                  }
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    right: "10px",
+                    transform: "translateY(-50%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "28px",
+                    height: "28px",
+                    padding: 0,
+                    border: "none",
+                    borderRadius: "6px",
+                    background: "transparent",
+                    color: "#6b7280",
+                    cursor: "pointer",
+                  }}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
               <Link
                 href="/connexion/mot-de-passe-oublie"
                 style={{
