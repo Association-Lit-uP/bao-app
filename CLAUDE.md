@@ -4,7 +4,7 @@
 > intervient sur `Association-Lit-uP/bao-app`. À lire avant la première contribution,
 > à relire avant une grosse modif, à mettre à jour après chaque session.
 >
-> Dernière mise à jour : 10 octobre 2026.
+> Dernière mise à jour : 11 octobre 2026.
 
 ---
 
@@ -722,6 +722,47 @@ table Airtable et son mapping Make.
 
 - Finaliser le domaine personnalisé `bao.lit-up.fr`.
 
+#### Auto-diagnostic du pro : décisions prises le 11 octobre 2026, à développer
+
+Trois évolutions de `/bao/diagnostic-pro`, cadrées sans être codées. Ordre
+de réalisation conseillé : 1 et 2 (petites), puis 3 (mockup d'abord).
+
+1. **Option « Autre (précisez) »** sur trois questions du contexte : niveau de
+   connaissance des jeunes, fréquence des rencontres, objectif principal de
+   l'accompagnement (celui-ci a déjà « Autre », sans champ). Même motif que
+   le type d'organisation : bouton en fin de liste, champ texte qui apparaît
+   dessous. La précision part dans le prompt, dans le contexte conservé pour
+   la relecture admin, et dans le hash du cache. La première question
+   « Quel est votre objectif ? » (évaluer ou diagnostiquer) n'est pas
+   concernée : elle pilote le parcours.
+2. **Ouverture en bêta.** La carte de `/bao/diagnostiquer` perd son alerte
+   « en cours de développement » et pointe sur la page, badge « BÊTA ». Une
+   modale s'affiche à l'entrée de la page (et non au clic sur la carte, pour
+   couvrir les accès directs depuis Mon espace), mémorisée par navigateur,
+   avec un rappel court et permanent sous le titre « Analyse personnalisée ».
+   Contenu : ce que fait l'outil ; sur quoi l'IA s'appuie (outils Lit uP,
+   conseils et postures Lit uP, documents et sources issus de la recherche sur
+   la motivation et le pouvoir d'agir) ; ses limites (elle peut se tromper,
+   elle guide et aide sans prescrire, elle appelle esprit critique, regard
+   éducatif et prise de recul). Vouvoiement.
+3. **Bilan d'action à copier-coller.** Choix retenu : une étape optionnelle
+   entre l'évaluation des 9 clés et les résultats, avec un bouton « Passer
+   cette étape » visible dès l'arrivée (en haut et en bas). Pourquoi : un seul
+   appel IA, une seule unité de quota, et le bilan profite de tout le
+   contexte. Six champs, tous facultatifs : nombre de jeunes, nombre de
+   séances, nombre d'heures au total, objectif de l'action, description
+   synthétique, commentaire libre sur le déroulé (rappel : aucun nom de
+   jeune). Le prompt gagne une cinquième section, produite seulement si des
+   champs sont remplis : 150 à 250 mots, registre institutionnel, sans
+   tutoiement ni emoji, quatre paragraphes (intention, réalisation, forces,
+   à travailler), séparée de l'analyse par un repère fixe. À l'écran, une
+   carte « Bilan d'action à copier » avec bouton « Copier le texte » et la
+   mention « relisez et adaptez avant de transmettre ». Sauvegarde : deux
+   colonnes sur `analyses` (texte du bilan, champs saisis), migration
+   idempotente, réaffichage dans Mon espace ; les champs rejoignent aussi
+   `diagnostic_analyses.full_context`. Un mockup HTML de l'étape et de la
+   carte précède le code (§12).
+
 #### Sécurité, à traiter avant d'ouvrir des accès
 
 - **Porter les rôles admin dans le RLS.** Le RLS ne teste aujourd'hui que
@@ -739,8 +780,9 @@ table Airtable et son mapping Make.
   lien de confirmation).
 - Brancher la carte « Auto-diagnostic du pro » sur `/bao/diagnostic-pro` :
   elle affiche aujourd'hui une `alert()` « en cours de développement »
-  (`handleAutoDiagnostic`, `app/bao/diagnostiquer/page.tsx`). Décider au
-  passage si on garde le badge « en cours de développement ».
+  (`handleAutoDiagnostic`, `app/bao/diagnostiquer/page.tsx`). Décidé le
+  11 octobre 2026 : badge « BÊTA » et modale d'avertissement, voir la
+  section « Auto-diagnostic du pro » ci-dessus.
 - Fusionner `next.config.js` et `next.config.mjs` (§8), en vérifiant si
   `next/image` est utilisé avec des URL Supabase.
 - Vérifier les projets Vercel `jeu-competences-app` et `outils-formation` :
