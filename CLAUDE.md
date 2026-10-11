@@ -451,19 +451,25 @@ relancer un build avec le bon auteur. On n'amende pas l'historique.
 
 ### Vercel ne déploie plus rien depuis le transfert du dépôt
 
-Symptôme : une PR est mergée sur `main`, GitHub ne montre aucun check, et
-Vercel ne lance aucun déploiement (ni preview, ni production). Un déploiement
-lancé à la main depuis l'API échoue en quelques secondes avec `git_info_fail`.
+Symptôme : une PR est mergée sur `main`, aucun statut « Vercel » n'apparaît
+sur les commits GitHub, et Vercel ne crée aucun déploiement (ni preview, ni
+production). Un déploiement lancé à la main par l'API échoue en quelques
+secondes avec `git_info_fail`. Pourtant, dans Vercel, Settings puis Git
+affiche bien `Association-Lit-uP/bao-app` comme connecté.
 Cause : le dépôt a été transféré de `lit-up-fr` vers l'organisation GitHub
-`Association-Lit-uP`, mais le projet Vercel `bao-app` est resté lié à
-`lit-up-fr/bao-app`. Constaté le 10 octobre 2026 : la prod était restée sur la
-PR #7 (23 septembre), les PR #8 et #9 n'avaient jamais été déployées.
-Correctif, dans le dashboard Vercel uniquement : projet `bao-app`, Settings,
-Git, « Disconnect », puis « Connect Git Repository » vers
-`Association-Lit-uP/bao-app` (l'app GitHub Vercel est déjà installée sur
-l'organisation, c'est ce qui a été fait pour `litup-outils`). Ensuite
-« Redeploy » sur `main`. Après un merge, vérifier dans Vercel qu'un
-déploiement est bien parti : GitHub seul ne le montre pas.
+`Association-Lit-uP` entre le 23 septembre et le 3 octobre 2026. Vercel
+affiche le nouveau nom (GitHub conserve l'identifiant du dépôt), mais ne
+reçoit plus les événements du dépôt. Cause la plus probable : l'app GitHub
+« Vercel » installée sur l'organisation ne couvre pas `bao-app`. Constaté le
+10 octobre 2026 : la prod était restée sur la PR #7 (23 septembre), les PR #8
+et #9 n'avaient jamais été déployées.
+Correctif : sur GitHub, organisation `Association-Lit-uP`, Settings,
+Third-party Access, GitHub Apps, Vercel, Configure, ajouter `bao-app` dans
+Repository access. Puis relancer un déploiement de `main` (un commit vide, ou
+« Create Deployment » dans Vercel ; « Redeploy » sur un ancien déploiement
+redéploierait l'ancien commit). Si l'app couvre déjà le dépôt, dans Vercel :
+Settings, Git, Disconnect, puis Connect vers `Association-Lit-uP/bao-app`.
+Après un merge, vérifier qu'un statut Vercel apparaît sur le commit GitHub.
 
 ### Auth et sécurité
 
@@ -712,11 +718,10 @@ table Airtable et son mapping Make.
 
 #### Priorité 3 : mise en ligne
 
-- **Urgent** : relier le projet Vercel `bao-app` au dépôt
-  `Association-Lit-uP/bao-app` (§8, piège « Vercel ne déploie plus rien »),
-  puis redéployer `main`. Tant que ce n'est pas fait, rien de ce qui est mergé
-  depuis le 23 septembre 2026 n'est en prod. Décideur : Laetitia, dans le
-  dashboard Vercel.
+- **Urgent** : rétablir les déploiements Vercel (§8, piège « Vercel ne
+  déploie plus rien depuis le transfert du dépôt »), puis redéployer `main`.
+  Tant que ce n'est pas fait, rien de ce qui est mergé depuis le 23 septembre
+  2026 n'est en prod. Décideur : Laetitia, sur GitHub et Vercel.
 - Finaliser le domaine personnalisé `bao.lit-up.fr`.
 
 #### Sécurité, à traiter avant d'ouvrir des accès
