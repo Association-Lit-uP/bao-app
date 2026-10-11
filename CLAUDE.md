@@ -135,7 +135,8 @@ app/
 
 components/                 # composants partagés (AppHeader, Sidebar, FicheCard,
                             # FicheModal, AuthGuard, RichTextEditor, FavoriButton,
-                            # PasswordInput : champ mot de passe avec bouton œil...)
+                            # PasswordInput : champ mot de passe avec bouton œil,
+                            # BetaDiagnosticModal : avertissement bêta de l'auto-diagnostic...)
 lib/
 ├── supabase.ts             # client navigateur + types métier + authHeaders()
 ├── supabase/client.ts      # client @supabase/ssr (navigateur)
@@ -724,10 +725,10 @@ table Airtable et son mapping Make.
 
 #### Auto-diagnostic du pro : décisions prises le 11 octobre 2026, à développer
 
-Trois évolutions de `/bao/diagnostic-pro`, cadrées sans être codées. Ordre
-de réalisation conseillé : 1 et 2 (petites), puis 3 (mockup d'abord).
+Trois évolutions de `/bao/diagnostic-pro`. Les points 1 et 2 sont livrés
+(PR #12, 11 octobre 2026), le point 3 reste à faire (mockup d'abord).
 
-1. **Option « Autre (précisez) »** sur trois questions du contexte : niveau de
+1. **Option « Autre (précisez) »** (fait) sur trois questions du contexte : niveau de
    connaissance des jeunes, fréquence des rencontres, objectif principal de
    l'accompagnement (celui-ci a déjà « Autre », sans champ). Même motif que
    le type d'organisation : bouton en fin de liste, champ texte qui apparaît
@@ -735,17 +736,19 @@ de réalisation conseillé : 1 et 2 (petites), puis 3 (mockup d'abord).
    la relecture admin, et dans le hash du cache. La première question
    « Quel est votre objectif ? » (évaluer ou diagnostiquer) n'est pas
    concernée : elle pilote le parcours.
-2. **Ouverture en bêta.** La carte de `/bao/diagnostiquer` perd son alerte
-   « en cours de développement » et pointe sur la page, badge « BÊTA ». Une
-   modale s'affiche à l'entrée de la page (et non au clic sur la carte, pour
+2. **Ouverture en bêta** (fait). La carte de `/bao/diagnostiquer` pointe sur
+   la page, badge « Bêta ». Une modale (`components/BetaDiagnosticModal.tsx`)
+   s'affiche à l'entrée de la page (et non au clic sur la carte, pour
    couvrir les accès directs depuis Mon espace), mémorisée par navigateur,
-   avec un rappel court et permanent sous le titre « Analyse personnalisée ».
+   (clé localStorage `bao_diagnostic_pro_beta_vu`), avec un rappel court et
+   permanent sous le titre « Analyse personnalisée » et un badge « Bêta » sur
+   le titre de la page. « Plus tard » renvoie vers `/bao/diagnostiquer`.
    Contenu : ce que fait l'outil ; sur quoi l'IA s'appuie (outils Lit uP,
    conseils et postures Lit uP, documents et sources issus de la recherche sur
    la motivation et le pouvoir d'agir) ; ses limites (elle peut se tromper,
    elle guide et aide sans prescrire, elle appelle esprit critique, regard
    éducatif et prise de recul). Vouvoiement.
-3. **Bilan d'action à copier-coller.** Choix retenu : une étape optionnelle
+3. **Bilan d'action à copier-coller** (à faire). Choix retenu : une étape optionnelle
    entre l'évaluation des 9 clés et les résultats, avec un bouton « Passer
    cette étape » visible dès l'arrivée (en haut et en bas). Pourquoi : un seul
    appel IA, une seule unité de quota, et le bilan profite de tout le
@@ -778,11 +781,6 @@ de réalisation conseillé : 1 et 2 (petites), puis 3 (mockup d'abord).
 - Vérifier le parcours d'inscription de bout en bout avec un compte de test :
   approuver depuis `/admin/utilisateurs`, puis se connecter (doit passer sans
   lien de confirmation).
-- Brancher la carte « Auto-diagnostic du pro » sur `/bao/diagnostic-pro` :
-  elle affiche aujourd'hui une `alert()` « en cours de développement »
-  (`handleAutoDiagnostic`, `app/bao/diagnostiquer/page.tsx`). Décidé le
-  11 octobre 2026 : badge « BÊTA » et modale d'avertissement, voir la
-  section « Auto-diagnostic du pro » ci-dessus.
 - Fusionner `next.config.js` et `next.config.mjs` (§8), en vérifiant si
   `next/image` est utilisé avec des URL Supabase.
 - Vérifier les projets Vercel `jeu-competences-app` et `outils-formation` :
@@ -833,7 +831,6 @@ de réalisation conseillé : 1 et 2 (petites), puis 3 (mockup d'abord).
 | `is_admin` et `admin_role` (singulier) encore lus en fallback | double source de vérité | moyenne |
 | Historique de migrations incomplet (objets créés dans le dashboard) | `supabase db push` inutilisable | élevée |
 | Rôles admin non appliqués dans le RLS | un rôle restreint ne l'est pas en base | moyenne |
-| `/bao/diagnostic-pro` sans lien entrant | page livrée mais inatteignable | faible |
 | Edge function `send-welcome-email` jamais déployée | code mort tant que la confirmation d'email est désactivée | faible |
 
 Avant de t'attaquer à une ligne de ce tableau, annonce-le : plusieurs de ces
@@ -865,6 +862,7 @@ git log --pretty=format:'%ad | %an | %s' --date=short
 | 22 septembre 2026 | Claude | Ce document de collaboration, avec les conventions, les pièges et les étapes à venir |
 | 3 octobre 2026 | Claude | PDF des fiches : nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite (pdf.js servi depuis `public/pdfjs/`) |
 | 10 octobre 2026 | Claude | Bouton œil pour afficher ou masquer le mot de passe sur tous les champs (PR #9, composant `components/PasswordInput.tsx`) |
+| 11 octobre 2026 | Claude | Auto-diagnostic ouvert en bêta (PR #12) : carte reliée à `/bao/diagnostic-pro`, modale d'avertissement, rappel près de l'analyse, option « Autre (précisez) » sur trois questions du contexte |
 
 **Convention** : on ajoute une ligne ici quand un jalon est mergé sur `main`
 (une fonctionnalité visible, une migration de schéma, un correctif de
