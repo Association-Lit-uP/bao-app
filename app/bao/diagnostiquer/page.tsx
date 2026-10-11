@@ -168,7 +168,7 @@ export default function DiagnostiquerPage() {
                 Diagnostic déjà réalisé ?
               </div>
               <div style={{ fontSize: "13px", opacity: 0.85, lineHeight: 1.4 }}>
-                Saisis les résultats pour obtenir une analyse personnalisée et des pistes d&apos;outils adaptés à ton groupe.
+                Saisissez les résultats pour obtenir une analyse personnalisée et des pistes d&apos;outils adaptés à votre groupe.
               </div>
             </div>
             <div style={{
