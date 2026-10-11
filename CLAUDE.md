@@ -194,8 +194,11 @@ documentation.
   parenthèses en priorité, sinon virgule, point-virgule ou deux-points.
   Le tiret demi-cadratin `–` reste acceptable pour une incise.
 - Français clair et accessible, sans jargon ni anglicismes inutiles.
-- **Vouvoiement pour les pros** (c'est le public de la BAO), tutoiement
-  chaleureux si un contenu s'adresse directement aux jeunes.
+- **Tutoiement** : les jeunes (choix pédagogique, ton chaleureux mais
+  respectueux) et les personnes internes à Lit uP (équipe, bénévoles,
+  contributeurs). **Vouvoiement** : toute personne extérieure à la structure
+  (pros de l'accompagnement, donc le public de la BAO, partenaires,
+  financeurs, institutions).
 - Éviter le mot « vulnérabilité » pour parler des jeunes en situation complexe.
 - Le nom de l'association s'écrit **« Lit uP »**, sans « + », avec ce casing exact.
 - Apostrophes : dans le JSX, utiliser `&apos;` (l'échappement `\'` casse le
