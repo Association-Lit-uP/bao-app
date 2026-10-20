@@ -1,10 +1,11 @@
 # CLAUDE.md – Guide de collaboration BAO Lit uP
 
 > Document de référence partagé pour toute personne (ou assistant IA) qui
-> intervient sur `lit-up-fr/bao-app`. À lire avant la première contribution,
-> à relire avant une grosse modif, à mettre à jour après chaque session.
+> intervient sur `Association-Lit-uP/bao-app`. À lire avant la première
+> contribution, à relire avant une grosse modif, à mettre à jour après chaque
+> session.
 >
-> Dernière mise à jour : 3 octobre 2026.
+> Dernière mise à jour : 20 octobre 2026.
 
 ---
 
@@ -19,7 +20,7 @@ remobiliser les jeunes de 14 à 25 ans.
 | | |
 |---|---|
 | **Prod** | `bao.lit-up.fr` (Vercel, déploiement auto sur `main`) |
-| **Repo** | `github.com/lit-up-fr/bao-app` (privé) |
+| **Repo** | `github.com/Association-Lit-uP/bao-app` (privé, anciennement `lit-up-fr/bao-app`) |
 | **Stack** | Next.js 14 App Router · React 18 · TypeScript strict · Tailwind 3 |
 | **Backend** | Supabase (Postgres + Auth + RLS), projet `odadaqpihvcnuprkdchr` |
 | **IA** | SDK Anthropic (`@anthropic-ai/sdk`), corpus lu depuis Google Drive |
@@ -69,7 +70,7 @@ sensibles aux conflits sont `lib/auth.ts`, `app/admin/layout.tsx` et
 Node.js 20 ou plus, npm 10, un accès Supabase et Vercel du projet.
 
 ```bash
-git clone https://github.com/lit-up-fr/bao-app.git
+git clone https://github.com/Association-Lit-uP/bao-app.git
 cd bao-app
 npm install
 cp .env.local.example .env.local   # puis renseigne tes vraies clés
@@ -387,9 +388,9 @@ correctif à chaud en prod, écris quand même la migration correspondante.
 - Avant de pousser : `npm run build` en local. C'est la règle qui évite le plus
   d'allers-retours (voir §8).
 - **Délégation validée** : Claude peut créer la PR et la merger lui-même dans
-  `main` quand Laetitia le lui demande (c'est ce qui a été fait pour les PR #5
-  et #6). Ça ne change pas la règle : on passe par une PR, jamais par un push
-  direct sur `main`.
+  `main` quand Laetitia le lui demande (c'est ce qui a été fait pour les PR #5,
+  #6 et #8). Ça ne change pas la règle : on passe par une PR, jamais par un
+  push direct sur `main`.
 
 ---
 
@@ -595,6 +596,23 @@ relancer un build avec le bon auteur. On n'amende pas l'historique.
   `to_jsonb(NEW)->>'col'` plutôt que `NEW.col` : si une colonne est absente
   (`admin_roles` par exemple), `NEW.col` casse **tous** les UPDATE.
 
+### Vercel ne déploie plus depuis le transfert du dépôt
+
+Le dépôt est passé du compte `lit-up-fr` à l'organisation `Association-Lit-uP`
+fin septembre 2026. La liaison Git du projet Vercel (Settings → Git) pointe
+toujours sur `lit-up-fr/bao-app` : **plus aucun déploiement automatique
+depuis le 22 septembre 2026** (ni les commits sur `main` du 29 septembre, ni
+le merge de la PR #8 le 4 octobre). Symptôme : « toujours rien en prod » alors
+que `main` a bien bougé, et aucun déploiement de prévisualisation sur les
+branches. Le 20 octobre, la mise en prod de la PR #8 a été lancée à la main
+par l'API Vercel (déploiement depuis `Association-Lit-uP/bao-app`, branche
+`main`), ce qui fonctionne. Correctif durable, à faire dans le dashboard
+Vercel : Settings → Git → déconnecter puis reconnecter le dépôt
+`Association-Lit-uP/bao-app` (et vérifier que l'app GitHub Vercel est bien
+installée sur l'organisation). Les trois autres projets Vercel de l'équipe
+(`litup-outils`, `jeu-competences-app`, `outils-formation`) sont dans le même
+cas si leurs dépôts ont été transférés aussi.
+
 ### Git et environnement local
 
 - Un prompt qui affiche `|MERGING` signale un `git merge` interrompu en local
@@ -709,6 +727,10 @@ table Airtable et son mapping Make.
 
 #### Petits chantiers identifiés
 
+- **Reconnecter le dépôt dans Vercel** (Settings → Git, vers
+  `Association-Lit-uP/bao-app`) : sans ça, rien ne se déploie
+  automatiquement depuis le transfert du dépôt (§8). À faire en premier,
+  sinon chaque merge demande un déploiement manuel.
 - Vérifier le parcours d'inscription de bout en bout avec un compte de test :
   approuver depuis `/admin/utilisateurs`, puis se connecter (doit passer sans
   lien de confirmation).
@@ -730,7 +752,7 @@ table Airtable et son mapping Make.
 - **Réactiver ou non la confirmation d'email Auth**, et donc déployer
   `send-welcome-email` (§8). Décideur : l'Owner du projet Supabase.
 - **Migrer le PAT GitHub classic vers un token fine-grained** limité au seul
-  repo `lit-up-fr/bao-app`, plus sûr que le scope `repo` complet.
+  repo `Association-Lit-uP/bao-app`, plus sûr que le scope `repo` complet.
   Décideur : Laetitia.
 - Héberger dans la BAO les **questionnaires jeunes** (autodétermination).
 - Sort des sections **Parcours** et **Étapes** de l'admin : elles sont
@@ -792,7 +814,7 @@ git log --pretty=format:'%ad | %an | %s' --date=short
 | 19 août 2026 | Laetitia | PWA (PR #5) : manifest `app/manifest.ts`, icônes, métadonnées d'installation. Sans service worker ni notifications push, décision assumée |
 | 11 septembre 2026 | Laetitia | Page publique « La roulette des défis » (PR #6, `/roulette-questions`), avec la redirection `/roulette-defis` pour les QR codes |
 | 22 septembre 2026 | Claude | Ce document de collaboration, avec les conventions, les pièges et les étapes à venir |
-| 3 octobre 2026 | Claude | PDF des fiches : nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite (pdf.js servi depuis `public/pdfjs/`) |
+| 3-4 octobre 2026 | Claude | PR #8 : PDF des fiches complet (nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite, pdf.js servi depuis `public/pdfjs/`) et correctif des modifications perdues dans le formulaire admin (`RichTextEditor`). Mise en prod lancée à la main le 20 octobre, la liaison Git Vercel étant cassée (§8) |
 
 **Convention** : on ajoute une ligne ici quand un jalon est mergé sur `main`
 (une fonctionnalité visible, une migration de schéma, un correctif de
