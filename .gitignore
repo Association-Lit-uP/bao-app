@@ -8,6 +8,8 @@ node_modules/
 out/
 build/
 dist/
+# pdf.js copié depuis node_modules par scripts/copier-pdfjs.mjs (postinstall)
+public/pdfjs/
 
 # Variables d'environnement (NE JAMAIS COMMITER)
 .env

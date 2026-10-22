@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Fiche, Cle, Etape, Objectif } from "@/lib/supabase";
 import { formatDuree, slugify } from "@/lib/supabase";
@@ -31,6 +31,21 @@ function parseJSON(val: any): any {
 }
 
 export default function FicheModal({ fiche, cles, etape, onClose, userId, isAdmin, objectifsBao }: FicheModalProps) {
+  const [pdfEnCours, setPdfEnCours] = useState(false);
+
+  async function handleTelechargerPdf() {
+    if (pdfEnCours) return;
+    setPdfEnCours(true);
+    logEvent("pdf_download", { ficheId: fiche.id });
+    try {
+      await generateFichePdf(fiche, cles.map((c: any) => ({ nom: c.nom, emoji: c.emoji })));
+    } catch (err) {
+      console.error("Erreur génération PDF :", err);
+    } finally {
+      setPdfEnCours(false);
+    }
+  }
+
   // Enregistrer la consultation à l'ouverture de la modale
   useEffect(() => {
     if (userId && fiche?.id) {
@@ -501,7 +516,8 @@ export default function FicheModal({ fiche, cles, etape, onClose, userId, isAdmi
         {/* CTA buttons */}
         <div style={{ marginTop: "28px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <div role="button" tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); logEvent("pdf_download", { ficheId: fiche.id }); generateFichePdf(fiche, cles.map((c: any) => ({ nom: c.nom, emoji: c.emoji }))); }}
+              aria-busy={pdfEnCours}
+              onClick={(e) => { e.stopPropagation(); handleTelechargerPdf(); }}
               style={{
                 padding: "11px 20px",
                 border: "2px solid var(--canard)",
@@ -510,7 +526,8 @@ export default function FicheModal({ fiche, cles, etape, onClose, userId, isAdmi
                 fontFamily: "inherit",
                 fontSize: "13px",
                 fontWeight: 700,
-                cursor: "pointer",
+                cursor: pdfEnCours ? "wait" : "pointer",
+                opacity: pdfEnCours ? 0.7 : 1,
                 borderRadius: "24px",
                 transition: "all 0.2s",
                 display: "inline-flex",
@@ -519,7 +536,7 @@ export default function FicheModal({ fiche, cles, etape, onClose, userId, isAdmi
                 letterSpacing: "0.02em",
               }}
             >
-              ↓ Télécharger la fiche PDF
+              {pdfEnCours ? "Préparation du PDF…" : "↓ Télécharger la fiche PDF"}
             </div>
           <UsageOutilButton ficheNom={fiche.nom} ficheSlug={fiche.slug} userId={userId || null} />
         </div>

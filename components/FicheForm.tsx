@@ -30,6 +30,9 @@ export default function FicheForm({ ficheId }: FicheFormProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  // Erreur d'envoi de fichier (image ou PDF), affichée près du bouton concerné :
+  // sans ça, un échec d'upload n'était visible que dans la console.
+  const [uploadError, setUploadError] = useState("");
 
   const [nom, setNom] = useState("");
   const [etapeId, setEtapeId] = useState("");
@@ -179,6 +182,7 @@ export default function FicheForm({ ficheId }: FicheFormProps) {
     const { error } = await supabase.storage.from("fiches-images").upload(fileName, file, { upsert: true });
     if (error) {
       console.error("Upload image error:", error);
+      setUploadError(`Image « ${file.name} » non envoyée : ${error.message}`);
       return null;
     }
     return getPublicUrl("fiches-images", fileName);
@@ -191,6 +195,7 @@ export default function FicheForm({ ficheId }: FicheFormProps) {
     const { error } = await supabase.storage.from("fiches-pdf").upload(fileName, file, { upsert: true });
     if (error) {
       console.error("Upload PDF error:", error);
+      setUploadError(`PDF « ${file.name} » non envoyé : ${error.message}`);
       return null;
     }
     return getPublicUrl("fiches-pdf", fileName);
@@ -198,6 +203,7 @@ export default function FicheForm({ ficheId }: FicheFormProps) {
 
   async function handleIllustrationUpload(files: FileList) {
     setUploading(true);
+    setUploadError("");
     const slug = slugify(nom || "fiche");
     const newUrls: string[] = [];
     for (const file of Array.from(files)) {
@@ -214,6 +220,7 @@ export default function FicheForm({ ficheId }: FicheFormProps) {
 
   async function handleStepImageUpload(file: File, stepIndex: number) {
     setUploading(true);
+    setUploadError("");
     const slug = slugify(nom || "fiche");
     const url = await uploadImage(file, `${slug}/deroule`);
     if (url) {
@@ -226,6 +233,7 @@ export default function FicheForm({ ficheId }: FicheFormProps) {
 
   async function handlePdfComplementaireUpload(file: File) {
     setUploading(true);
+    setUploadError("");
     const url = await uploadPdf(file);
     if (url) {
       setPdfsComplementaires((prev) => [...prev, { nom: file.name.replace(".pdf", ""), url }]);
@@ -410,6 +418,7 @@ export default function FicheForm({ ficheId }: FicheFormProps) {
           {uploading ? "Upload en cours..." : "+ Ajouter des illustrations"}
           <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { if (e.target.files) handleIllustrationUpload(e.target.files); }} />
         </label>
+        {uploadError && <div style={uploadErrorStyle}>{uploadError}</div>}
 
         {/* ═══ Objectifs BAO (catégories) ═══ */}
         <SectionTitle text="Objectifs BAO (catégories)" />
@@ -589,6 +598,7 @@ export default function FicheForm({ ficheId }: FicheFormProps) {
           {uploading ? "Upload en cours..." : "+ Ajouter un PDF complementaire"}
           <input type="file" accept=".pdf" style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) handlePdfComplementaireUpload(file); }} />
         </label>
+        {uploadError && <div style={uploadErrorStyle}>{uploadError}</div>}
 
         {/* ═══ Publication ═══ */}
         <SectionTitle text="Publication" />
@@ -654,6 +664,15 @@ const inputStyle: React.CSSProperties = {
   width: "100%", padding: "10px 14px", border: "2px solid var(--line-strong)", borderRadius: "10px",
   fontSize: "14px", fontFamily: "inherit", color: "var(--anthracite)", outline: "none",
   boxSizing: "border-box", transition: "border-color 0.2s", background: "white",
+};
+
+const uploadErrorStyle: React.CSSProperties = {
+  background: "#fef2f2",
+  border: "1px solid #fecaca",
+  borderRadius: "10px",
+  padding: "10px 14px",
+  fontSize: "13px",
+  color: "#dc2626",
 };
 
 const addBtn: React.CSSProperties = {
