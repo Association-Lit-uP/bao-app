@@ -4,7 +4,7 @@
 > intervient sur `Association-Lit-uP/bao-app`. À lire avant la première contribution,
 > à relire avant une grosse modif, à mettre à jour après chaque session.
 >
-> Dernière mise à jour : 11 octobre 2026.
+> Dernière mise à jour : 22 octobre 2026.
 
 ---
 
@@ -392,9 +392,9 @@ correctif à chaud en prod, écris quand même la migration correspondante.
 - Avant de pousser : `npm run build` en local. C'est la règle qui évite le plus
   d'allers-retours (voir §8).
 - **Délégation validée** : Claude peut créer la PR et la merger lui-même dans
-  `main` quand Laetitia le lui demande (c'est ce qui a été fait pour les PR #5
-  et #6). Ça ne change pas la règle : on passe par une PR, jamais par un push
-  direct sur `main`.
+  `main` quand Laetitia le lui demande (c'est ce qui a été fait pour les PR #5,
+  #6 et #8). Ça ne change pas la règle : on passe par une PR, jamais par un
+  push direct sur `main`.
 
 ---
 
@@ -476,6 +476,15 @@ faut ensuite relancer un déploiement de `main` (commit vide, « Create
 Deployment » dans Vercel, ou l'API). « Redeploy » sur un ancien déploiement
 redéploierait l'ancien commit. Après chaque merge, vérifier qu'un statut
 Vercel apparaît sur le commit GitHub : son absence signale ce problème.
+
+Piège voisin, constaté le 22 octobre 2026 : un déploiement lancé par l'API
+avec un `sha` explicite déploie ce commit tel quel, même si `main` a avancé
+depuis. Le 20 octobre, une session Claude reprise après deux semaines de pause
+a déployé en prod le merge de la PR #8 (`874db9a`), repassant la prod derrière
+les PR #9 à #14 déjà déployées le 12 octobre, jusqu'au redéploiement de `main`
+le 22 octobre. Avant tout déploiement manuel : `git fetch origin main`,
+comparer avec le dernier déploiement de production dans Vercel, et ne jamais
+déployer un commit plus ancien que lui.
 
 ### Auth et sécurité
 
@@ -863,7 +872,7 @@ git log --pretty=format:'%ad | %an | %s' --date=short
 | 19 août 2026 | Laetitia | PWA (PR #5) : manifest `app/manifest.ts`, icônes, métadonnées d'installation. Sans service worker ni notifications push, décision assumée |
 | 11 septembre 2026 | Laetitia | Page publique « La roulette des défis » (PR #6, `/roulette-questions`), avec la redirection `/roulette-defis` pour les QR codes |
 | 22 septembre 2026 | Claude | Ce document de collaboration, avec les conventions, les pièges et les étapes à venir |
-| 3 octobre 2026 | Claude | PDF des fiches : nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite (pdf.js servi depuis `public/pdfjs/`) |
+| 3-4 octobre 2026 | Claude | PR #8 : PDF des fiches complet (nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite, pdf.js servi depuis `public/pdfjs/`) et correctif des modifications perdues dans le formulaire admin (`RichTextEditor`) |
 | 10 octobre 2026 | Claude | Bouton œil pour afficher ou masquer le mot de passe sur tous les champs (PR #9, composant `components/PasswordInput.tsx`) |
 | 11 octobre 2026 | Claude | Auto-diagnostic ouvert en bêta (PR #12) : carte reliée à `/bao/diagnostic-pro`, modale d'avertissement, rappel près de l'analyse, option « Autre (précisez) » sur trois questions du contexte |
 
