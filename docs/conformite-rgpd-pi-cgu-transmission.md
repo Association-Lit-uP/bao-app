@@ -3,7 +3,8 @@
 > Document de transmission pour Gabriela, qui reprend le chantier conformité.
 > Périmètre : uniquement l'application web « Boîte à outils Lit uP » (`bao.lit-up.fr`).
 > Source : lecture du code, des migrations SQL et de la documentation du repo
-> `bao-app`, état au 30 septembre 2026. Ce qui ne se voit pas dans le repo
+> `bao-app`, état au 30 septembre 2026, revérifié le 22 octobre 2026 après
+> fusion de `main`. Ce qui ne se voit pas dans le repo
 > (contrats, hébergement, dépôts INPI) est signalé « à vérifier ».
 > Échéance visée : fin octobre 2026, webinaire de lancement.
 
@@ -65,6 +66,7 @@ La plupart de ces prestataires sont américains : le mécanisme de transfert (cl
 - Suppression définitive d'un compte par l'admin : profil, favoris, consultations et retours supprimés, événements d'usage anonymisés.
 - Messages d'erreur génériques côté navigateur, secrets hors du code.
 - Minimisation raisonnable : le nombre de jeunes accompagnés est demandé en fourchette, pas de données sur les jeunes eux-mêmes dans le modèle de données.
+- Avertissement affiché à l'entrée de l'auto-diagnostic depuis le 11 octobre 2026 (composant `BetaDiagnosticModal`) : l'analyse est produite par une intelligence artificielle, elle peut se tromper, elle sert de guide et non de prescription. C'est un bon point de départ pour la clause IA des CGU.
 
 ### 2.4 Manques à combler avant fin octobre
 
