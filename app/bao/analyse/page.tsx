@@ -573,10 +573,10 @@ ${jsonTemplate}`
               📋 Auto-diagnostic
             </div>
             <div style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "12px" }}>
-              Trouver des premières pistes, avant de solliciter les jeunes directement, à partir de tes propres observations.
+              Trouver des premières pistes, avant de solliciter les jeunes directement, à partir de vos propres observations.
             </div>
             <button
-              onClick={() => alert("🚧 Cette fonctionnalité est en cours de développement.\n\nElle te permettra bientôt de trouver des premières pistes à partir de tes propres observations, avant de solliciter les jeunes directement.")}
+              onClick={() => alert("🚧 Cette fonctionnalité est en cours de développement.\n\nElle vous permettra bientôt de trouver des premières pistes à partir de vos propres observations, avant de solliciter les jeunes directement.")}
               style={{
                 fontSize: "13px",
                 fontWeight: 600,

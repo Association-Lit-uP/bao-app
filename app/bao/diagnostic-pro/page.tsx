@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { supabase, authHeaders } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
+import BetaDiagnosticModal from "@/components/BetaDiagnosticModal";
 import Link from "next/link";
 
 /* ═══════════════════════════════════════════
@@ -18,14 +20,24 @@ interface ContextData {
   type_organisation: string;
   autre_organisation: string;
   connaissance_jeunes: string;
+  autre_connaissance: string;      // si connaissance_jeunes === "Autre"
   frequence: string;
+  autre_frequence: string;         // si frequence === "Autre"
   objectif_accompagnement: string;
+  autre_objectif_accompagnement: string; // si objectif_accompagnement === "Autre"
   volontariat: string;
   heterogeneite: string;
   // Nouvelles thématiques (selon objectif)
   thematique_atelier: string;     // si objectif === "evaluer"
   thematique_passe: string;        // si objectif === "diagnostiquer"
   thematique_avenir: string;       // si objectif === "diagnostiquer"
+}
+
+/** Libellé envoyé à l'IA et conservé pour l'admin quand le pro a choisi « Autre ». */
+function libelleAvecPrecision(valeur: string, precision: string): string {
+  if (valeur !== "Autre") return valeur;
+  const p = precision.trim();
+  return p ? `Autre : ${p}` : "Autre (non précisé)";
 }
 
 interface CleResult {
@@ -266,12 +278,16 @@ function renderMarkdown(text: string): string {
    MAIN COMPONENT
    ═══════════════════════════════════════════ */
 
+// Clé localStorage : l'avertissement « version bêta » a été lu sur ce navigateur
+const BETA_VU_KEY = "bao_diagnostic_pro_beta_vu";
+
 export default function DiagnosticProPage() {
   const [step, setStep] = useState(0); // 0=contexte, 1=évaluation, 2=résultats
   const [ctx, setCtx] = useState<ContextData>({
     nom_atelier: "", objectif: "", type_accompagnement: "", nb_jeunes: "", tranches_age: [],
-    type_organisation: "", autre_organisation: "", connaissance_jeunes: "",
-    frequence: "", objectif_accompagnement: "", volontariat: "", heterogeneite: "",
+    type_organisation: "", autre_organisation: "", connaissance_jeunes: "", autre_connaissance: "",
+    frequence: "", autre_frequence: "", objectif_accompagnement: "", autre_objectif_accompagnement: "",
+    volontariat: "", heterogeneite: "",
     thematique_atelier: "", thematique_passe: "", thematique_avenir: "",
   });
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -291,6 +307,24 @@ export default function DiagnosticProPage() {
   const [savedAnalysisId, setSavedAnalysisId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  // Avertissement « version bêta » : affiché à l'entrée de la page, mémorisé par navigateur
+  const router = useRouter();
+  const [showBeta, setShowBeta] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(BETA_VU_KEY) !== "1") setShowBeta(true);
+    } catch {
+      setShowBeta(true);
+    }
+  }, []);
+  function accepterBeta() {
+    setShowBeta(false);
+    try { localStorage.setItem(BETA_VU_KEY, "1"); } catch {}
+  }
+  function reporterBeta() {
+    router.push("/bao/diagnostiquer");
+  }
 
   const isCollectif = ctx.type_accompagnement === "collectif" || ctx.type_accompagnement === "les_deux";
   const isDiagnostiquer = ctx.objectif === "diagnostiquer";
@@ -344,9 +378,9 @@ TYPE : ${ctx.type_accompagnement}
 NOMBRE DE JEUNES : ${ctx.nb_jeunes || "non précisé"}
 TRANCHES D'ÂGE : ${ctx.tranches_age.join(", ")}
 ORGANISATION : ${ctx.type_organisation}${ctx.autre_organisation ? ` (${ctx.autre_organisation})` : ""}
-CONNAISSANCE DES JEUNES : ${ctx.connaissance_jeunes || "non précisé"}
-FRÉQUENCE : ${ctx.frequence || "non précisée"}
-OBJECTIF ACCOMPAGNEMENT : ${ctx.objectif_accompagnement || "non précisé"}
+CONNAISSANCE DES JEUNES : ${ctx.connaissance_jeunes ? libelleAvecPrecision(ctx.connaissance_jeunes, ctx.autre_connaissance) : "non précisé"}
+FRÉQUENCE : ${ctx.frequence ? libelleAvecPrecision(ctx.frequence, ctx.autre_frequence) : "non précisée"}
+OBJECTIF ACCOMPAGNEMENT : ${ctx.objectif_accompagnement ? libelleAvecPrecision(ctx.objectif_accompagnement, ctx.autre_objectif_accompagnement) : "non précisé"}
 VOLONTARIAT : ${ctx.volontariat}
 HÉTÉROGÉNÉITÉ MOTIVATION : ${ctx.heterogeneite || "non précisé"}
 ${ctx.objectif === "evaluer" && ctx.thematique_atelier ? `THÉMATIQUE DE L'ATELIER ÉVALUÉ : ${ctx.thematique_atelier}` : ""}
@@ -407,9 +441,9 @@ Génère une analyse personnalisée en respectant strictement la posture défini
             tranches_age: ctx.tranches_age,
             type_organisation_raw: ctx.type_organisation,
             autre_organisation: ctx.autre_organisation || undefined,
-            connaissance_jeunes: ctx.connaissance_jeunes || undefined,
-            frequence: ctx.frequence || undefined,
-            objectif_accompagnement: ctx.objectif_accompagnement || undefined,
+            connaissance_jeunes: ctx.connaissance_jeunes ? libelleAvecPrecision(ctx.connaissance_jeunes, ctx.autre_connaissance) : undefined,
+            frequence: ctx.frequence ? libelleAvecPrecision(ctx.frequence, ctx.autre_frequence) : undefined,
+            objectif_accompagnement: ctx.objectif_accompagnement ? libelleAvecPrecision(ctx.objectif_accompagnement, ctx.autre_objectif_accompagnement) : undefined,
             precisions: precisions,
             commentaire_libre: champLibre,
             user_id: userIdForApi,
@@ -528,6 +562,8 @@ Génère une analyse personnalisée en respectant strictement la posture défini
     title: { fontSize: "28px", fontWeight: 800, color: "var(--anthracite)", letterSpacing: "-0.02em", marginBottom: "8px" } as React.CSSProperties,
     sub: { fontSize: "15px", color: "var(--muted)", marginBottom: "28px", lineHeight: 1.5 } as React.CSSProperties,
     field: { marginBottom: "20px" } as React.CSSProperties,
+    autre: { marginTop: "8px", width: "100%", padding: "8px 12px", borderRadius: "8px", border: "2px solid var(--line-strong)", fontFamily: "inherit", fontSize: "13px", boxSizing: "border-box" } as React.CSSProperties,
+    beta: { fontSize: "11px", fontWeight: 700, background: "#6B2468", color: "white", padding: "3px 9px", borderRadius: "6px", textTransform: "uppercase", letterSpacing: "0.4px", verticalAlign: "middle", marginLeft: "10px" } as React.CSSProperties,
     label: { fontSize: "13px", fontWeight: 700, color: "var(--anthracite)", marginBottom: "8px", display: "block" } as React.CSSProperties,
     rg: { display: "flex", flexWrap: "wrap" as const, gap: "8px" } as React.CSSProperties,
     rb: (on: boolean) => ({ padding: "8px 16px", borderRadius: "20px", fontSize: "13px", fontWeight: 600, cursor: "pointer", border: on ? "2px solid var(--canard)" : "2px solid var(--line-strong)", background: on ? "var(--canard)" : "white", color: on ? "white" : "var(--anthracite)", transition: "all 0.15s" }) as React.CSSProperties,
@@ -583,6 +619,7 @@ Génère une analyse personnalisée en respectant strictement la posture défini
         }
       `}</style>
       <AppHeader searchQuery="" onSearchChange={() => {}} />
+      {showBeta && <BetaDiagnosticModal onStart={accepterBeta} onLater={reporterBeta} />}
       <div style={S.wrap}>
         <div style={{ marginBottom: "20px" }}>
           <Link href="/bao" style={{ fontSize: "13px", color: "var(--canard)", textDecoration: "none", fontWeight: 600 }}>← Retour à la boîte à outils</Link>
@@ -599,7 +636,7 @@ Génère une analyse personnalisée en respectant strictement la posture défini
         {/* ═══════ STEP 0 : CONTEXTE ═══════ */}
         {step === 0 && (
           <div>
-            <h1 style={S.title}>Diagnostic de l'engagement</h1>
+            <h1 style={S.title}>Diagnostic de l&apos;engagement<span style={S.beta}>Bêta</span></h1>
             <p style={S.sub}>Cet outil vous aide à identifier les leviers de motivation activés (ou non) dans votre accompagnement, en vous appuyant sur les 9 clés de l'engagement Lit uP.</p>
 
             {/* Nom de l'atelier (pour retrouver l'analyse dans Mon espace) */}
@@ -744,8 +781,7 @@ Génère une analyse personnalisée en respectant strictement la posture défini
                 ))}
               </div>
               {ctx.type_organisation === "Autre" && (
-                <input type="text" placeholder="Précisez le type d'organisation" value={ctx.autre_organisation} onChange={e => setCtx(p => ({ ...p, autre_organisation: e.target.value }))}
-                  style={{ marginTop: "8px", width: "100%", padding: "8px 12px", borderRadius: "8px", border: "2px solid var(--line-strong)", fontFamily: "inherit", fontSize: "13px" }} />
+                <input type="text" placeholder="Précisez le type d'organisation" value={ctx.autre_organisation} onChange={e => setCtx(p => ({ ...p, autre_organisation: e.target.value }))} style={S.autre} />
               )}
             </div>
 
@@ -758,20 +794,27 @@ Génère une analyse personnalisée en respectant strictement la posture défini
                   "Je commence à les connaître (quelques rencontres)",
                   "Je les connais bien (plusieurs semaines/mois d'accompagnement)",
                   "Je les connais très bien (accompagnement long, relation de confiance installée)",
+                  "Autre",
                 ].map(c => (
-                  <div key={c} style={{ ...S.rb(ctx.connaissance_jeunes === c), textAlign: "left" as const }} onClick={() => setCtx(p => ({ ...p, connaissance_jeunes: c }))}>{c}</div>
+                  <div key={c} style={{ ...S.rb(ctx.connaissance_jeunes === c), textAlign: "left" as const }} onClick={() => setCtx(p => ({ ...p, connaissance_jeunes: c }))}>{c === "Autre" ? "Autre (précisez)" : c}</div>
                 ))}
               </div>
+              {ctx.connaissance_jeunes === "Autre" && (
+                <input type="text" placeholder="Précisez votre niveau de connaissance de ce(s) jeune(s)" value={ctx.autre_connaissance} onChange={e => setCtx(p => ({ ...p, autre_connaissance: e.target.value }))} style={S.autre} />
+              )}
             </div>
 
             {/* Q7: Fréquence */}
             <div style={S.field}>
               <label style={S.label}>À quelle fréquence rencontrez-vous ce(s) jeune(s) ?</label>
               <div style={S.rg}>
-                {["Quotidienne ou plusieurs fois par semaine", "Hebdomadaire", "Bimensuelle", "Mensuelle", "Ponctuelle (quelques rencontres espacées)", "Rencontre unique"].map(f => (
-                  <div key={f} style={S.rb(ctx.frequence === f)} onClick={() => setCtx(p => ({ ...p, frequence: f }))}>{f}</div>
+                {["Quotidienne ou plusieurs fois par semaine", "Hebdomadaire", "Bimensuelle", "Mensuelle", "Ponctuelle (quelques rencontres espacées)", "Rencontre unique", "Autre"].map(f => (
+                  <div key={f} style={S.rb(ctx.frequence === f)} onClick={() => setCtx(p => ({ ...p, frequence: f }))}>{f === "Autre" ? "Autre (précisez)" : f}</div>
                 ))}
               </div>
+              {ctx.frequence === "Autre" && (
+                <input type="text" placeholder="Précisez la fréquence des rencontres" value={ctx.autre_frequence} onChange={e => setCtx(p => ({ ...p, autre_frequence: e.target.value }))} style={S.autre} />
+              )}
             </div>
 
             {/* Q8: Objectif accompagnement */}
@@ -779,9 +822,12 @@ Génère une analyse personnalisée en respectant strictement la posture défini
               <label style={S.label}>Objectif principal de l'accompagnement</label>
               <div style={S.rg}>
                 {["Remobilisation", "Insertion professionnelle", "Projet de vie", "Cohésion de groupe", "Développement personnel", "Autre"].map(o => (
-                  <div key={o} style={S.rb(ctx.objectif_accompagnement === o)} onClick={() => setCtx(p => ({ ...p, objectif_accompagnement: o }))}>{o}</div>
+                  <div key={o} style={S.rb(ctx.objectif_accompagnement === o)} onClick={() => setCtx(p => ({ ...p, objectif_accompagnement: o }))}>{o === "Autre" ? "Autre (précisez)" : o}</div>
                 ))}
               </div>
+              {ctx.objectif_accompagnement === "Autre" && (
+                <input type="text" placeholder="Précisez l'objectif principal de l'accompagnement" value={ctx.autre_objectif_accompagnement} onChange={e => setCtx(p => ({ ...p, autre_objectif_accompagnement: e.target.value }))} style={S.autre} />
+              )}
             </div>
 
             {/* Q9: Volontariat */}
@@ -1005,7 +1051,10 @@ Génère une analyse personnalisée en respectant strictement la posture défini
             {/* Analyse IA */}
             {analysisText && (
               <div style={S.card}>
-                <h2 style={{ fontSize: "16px", fontWeight: 800, color: "var(--anthracite)", marginBottom: "16px" }}>💡 Analyse personnalisée</h2>
+                <h2 style={{ fontSize: "16px", fontWeight: 800, color: "var(--anthracite)", marginBottom: "6px" }}>💡 Analyse personnalisée</h2>
+                <p style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.5, margin: "0 0 16px" }}>
+                  Analyse générée par une IA en version bêta : elle peut se tromper. Lisez-la avec votre regard de professionnel et gardez votre esprit critique.
+                </p>
                 <div
                   className="analysis-content"
                   style={{ fontSize: "14px", lineHeight: 1.7, color: "var(--anthracite)" }}

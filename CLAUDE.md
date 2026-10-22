@@ -1,11 +1,10 @@
 # CLAUDE.md – Guide de collaboration BAO Lit uP
 
 > Document de référence partagé pour toute personne (ou assistant IA) qui
-> intervient sur `Association-Lit-uP/bao-app`. À lire avant la première
-> contribution, à relire avant une grosse modif, à mettre à jour après chaque
-> session.
+> intervient sur `Association-Lit-uP/bao-app`. À lire avant la première contribution,
+> à relire avant une grosse modif, à mettre à jour après chaque session.
 >
-> Dernière mise à jour : 20 octobre 2026.
+> Dernière mise à jour : 22 octobre 2026.
 
 ---
 
@@ -20,7 +19,7 @@ remobiliser les jeunes de 14 à 25 ans.
 | | |
 |---|---|
 | **Prod** | `bao.lit-up.fr` (Vercel, déploiement auto sur `main`) |
-| **Repo** | `github.com/Association-Lit-uP/bao-app` (privé, anciennement `lit-up-fr/bao-app`) |
+| **Repo** | `github.com/Association-Lit-uP/bao-app` (privé, transféré depuis `lit-up-fr` début octobre 2026) |
 | **Stack** | Next.js 14 App Router · React 18 · TypeScript strict · Tailwind 3 |
 | **Backend** | Supabase (Postgres + Auth + RLS), projet `odadaqpihvcnuprkdchr` |
 | **IA** | SDK Anthropic (`@anthropic-ai/sdk`), corpus lu depuis Google Drive |
@@ -135,7 +134,9 @@ app/
     └── admin/save-to-sheet # envoi vers Apps Script
 
 components/                 # composants partagés (AppHeader, Sidebar, FicheCard,
-                            # FicheModal, AuthGuard, RichTextEditor, FavoriButton...)
+                            # FicheModal, AuthGuard, RichTextEditor, FavoriButton,
+                            # PasswordInput : champ mot de passe avec bouton œil,
+                            # BetaDiagnosticModal : avertissement bêta de l'auto-diagnostic...)
 lib/
 ├── supabase.ts             # client navigateur + types métier + authHeaders()
 ├── supabase/client.ts      # client @supabase/ssr (navigateur)
@@ -193,8 +194,11 @@ documentation.
   parenthèses en priorité, sinon virgule, point-virgule ou deux-points.
   Le tiret demi-cadratin `–` reste acceptable pour une incise.
 - Français clair et accessible, sans jargon ni anglicismes inutiles.
-- **Vouvoiement pour les pros** (c'est le public de la BAO), tutoiement
-  chaleureux si un contenu s'adresse directement aux jeunes.
+- **Tutoiement** : les jeunes (choix pédagogique, ton chaleureux mais
+  respectueux) et les personnes internes à Lit uP (équipe, bénévoles,
+  contributeurs). **Vouvoiement** : toute personne extérieure à la structure
+  (pros de l'accompagnement, donc le public de la BAO, partenaires,
+  financeurs, institutions).
 - Éviter le mot « vulnérabilité » pour parler des jeunes en situation complexe.
 - Le nom de l'association s'écrit **« Lit uP »**, sans « + », avec ce casing exact.
 - Apostrophes : dans le JSX, utiliser `&apos;` (l'échappement `\'` casse le
@@ -449,6 +453,39 @@ privé). Correctif : `git config --local user.email "prenom.nom@lit-up.fr"`,
 puis un commit vide (`git commit --allow-empty -m "trigger redeploy"`) pour
 relancer un build avec le bon auteur. On n'amende pas l'historique.
 
+### Vercel ne déploie plus rien après le transfert du dépôt
+
+Symptôme : une PR est mergée sur `main`, aucun statut « Vercel » n'apparaît
+sur les commits GitHub, et Vercel ne crée aucun déploiement (ni preview, ni
+production). Un déploiement lancé à la main par l'API échoue en quelques
+secondes avec `git_info_fail`. Pourtant, dans Vercel, Settings puis Git
+affiche bien `Association-Lit-uP/bao-app` comme connecté, et côté GitHub
+l'app Vercel de l'organisation est en « All repositories ».
+Cause : le dépôt a été transféré de `lit-up-fr` vers l'organisation GitHub
+`Association-Lit-uP` entre le 23 septembre et le 3 octobre 2026. Vercel
+affiche le nouveau nom (GitHub conserve l'identifiant du dépôt), mais la
+liaison enregistrée s'appuie toujours sur l'installation de l'ancien compte,
+qui n'existe plus : l'API Vercel renvoyait encore `org: lit-up-fr`. Constaté
+le 10 octobre 2026 : la prod était restée sur la PR #7 (23 septembre), les
+PR #8 et #9 n'avaient jamais été déployées.
+Correctif (fait le 11 octobre 2026) : dans Vercel, projet `bao-app`,
+Settings, Git, « Disconnect », puis « Connect Git Repository » vers
+`Association-Lit-uP/bao-app`. Domaines, variables d'environnement et
+historique sont conservés. La reconnexion ne déploie rien d'elle-même : il
+faut ensuite relancer un déploiement de `main` (commit vide, « Create
+Deployment » dans Vercel, ou l'API). « Redeploy » sur un ancien déploiement
+redéploierait l'ancien commit. Après chaque merge, vérifier qu'un statut
+Vercel apparaît sur le commit GitHub : son absence signale ce problème.
+
+Piège voisin, constaté le 22 octobre 2026 : un déploiement lancé par l'API
+avec un `sha` explicite déploie ce commit tel quel, même si `main` a avancé
+depuis. Le 20 octobre, une session Claude reprise après deux semaines de pause
+a déployé en prod le merge de la PR #8 (`874db9a`), repassant la prod derrière
+les PR #9 à #14 déjà déployées le 12 octobre, jusqu'au redéploiement de `main`
+le 22 octobre. Avant tout déploiement manuel : `git fetch origin main`,
+comparer avec le dernier déploiement de production dans Vercel, et ne jamais
+déployer un commit plus ancien que lui.
+
 ### Auth et sécurité
 
 - **Le profil est créé par un trigger serveur**, pas par un `INSERT` client.
@@ -596,23 +633,6 @@ relancer un build avec le bon auteur. On n'amende pas l'historique.
   `to_jsonb(NEW)->>'col'` plutôt que `NEW.col` : si une colonne est absente
   (`admin_roles` par exemple), `NEW.col` casse **tous** les UPDATE.
 
-### Vercel ne déploie plus depuis le transfert du dépôt
-
-Le dépôt est passé du compte `lit-up-fr` à l'organisation `Association-Lit-uP`
-fin septembre 2026. La liaison Git du projet Vercel (Settings → Git) pointe
-toujours sur `lit-up-fr/bao-app` : **plus aucun déploiement automatique
-depuis le 22 septembre 2026** (ni les commits sur `main` du 29 septembre, ni
-le merge de la PR #8 le 4 octobre). Symptôme : « toujours rien en prod » alors
-que `main` a bien bougé, et aucun déploiement de prévisualisation sur les
-branches. Le 20 octobre, la mise en prod de la PR #8 a été lancée à la main
-par l'API Vercel (déploiement depuis `Association-Lit-uP/bao-app`, branche
-`main`), ce qui fonctionne. Correctif durable, à faire dans le dashboard
-Vercel : Settings → Git → déconnecter puis reconnecter le dépôt
-`Association-Lit-uP/bao-app` (et vérifier que l'app GitHub Vercel est bien
-installée sur l'organisation). Les trois autres projets Vercel de l'équipe
-(`litup-outils`, `jeu-competences-app`, `outils-formation`) sont dans le même
-cas si leurs dépôts ont été transférés aussi.
-
 ### Git et environnement local
 
 - Un prompt qui affiche `|MERGING` signale un `git merge` interrompu en local
@@ -715,6 +735,49 @@ table Airtable et son mapping Make.
 
 - Finaliser le domaine personnalisé `bao.lit-up.fr`.
 
+#### Auto-diagnostic du pro : décisions prises le 11 octobre 2026, à développer
+
+Trois évolutions de `/bao/diagnostic-pro`. Les points 1 et 2 sont livrés
+(PR #12, 11 octobre 2026), le point 3 reste à faire (mockup d'abord).
+
+1. **Option « Autre (précisez) »** (fait) sur trois questions du contexte : niveau de
+   connaissance des jeunes, fréquence des rencontres, objectif principal de
+   l'accompagnement (celui-ci a déjà « Autre », sans champ). Même motif que
+   le type d'organisation : bouton en fin de liste, champ texte qui apparaît
+   dessous. La précision part dans le prompt, dans le contexte conservé pour
+   la relecture admin, et dans le hash du cache. La première question
+   « Quel est votre objectif ? » (évaluer ou diagnostiquer) n'est pas
+   concernée : elle pilote le parcours.
+2. **Ouverture en bêta** (fait). La carte de `/bao/diagnostiquer` pointe sur
+   la page, badge « Bêta ». Une modale (`components/BetaDiagnosticModal.tsx`)
+   s'affiche à l'entrée de la page (et non au clic sur la carte, pour
+   couvrir les accès directs depuis Mon espace), mémorisée par navigateur,
+   (clé localStorage `bao_diagnostic_pro_beta_vu`), avec un rappel court et
+   permanent sous le titre « Analyse personnalisée » et un badge « Bêta » sur
+   le titre de la page. « Plus tard » renvoie vers `/bao/diagnostiquer`.
+   Contenu : ce que fait l'outil ; sur quoi l'IA s'appuie (outils Lit uP,
+   conseils et postures Lit uP, documents et sources issus de la recherche sur
+   la motivation et le pouvoir d'agir) ; ses limites (elle peut se tromper,
+   elle guide et aide sans prescrire, elle appelle esprit critique, regard
+   éducatif et prise de recul). Vouvoiement.
+3. **Bilan d'action à copier-coller** (à faire). Choix retenu : une étape optionnelle
+   entre l'évaluation des 9 clés et les résultats, avec un bouton « Passer
+   cette étape » visible dès l'arrivée (en haut et en bas). Pourquoi : un seul
+   appel IA, une seule unité de quota, et le bilan profite de tout le
+   contexte. Six champs, tous facultatifs : nombre de jeunes, nombre de
+   séances, nombre d'heures au total, objectif de l'action, description
+   synthétique, commentaire libre sur le déroulé (rappel : aucun nom de
+   jeune). Le prompt gagne une cinquième section, produite seulement si des
+   champs sont remplis : 150 à 250 mots, registre institutionnel, sans
+   tutoiement ni emoji, quatre paragraphes (intention, réalisation, forces,
+   à travailler), séparée de l'analyse par un repère fixe. À l'écran, une
+   carte « Bilan d'action à copier » avec bouton « Copier le texte » et la
+   mention « relisez et adaptez avant de transmettre ». Sauvegarde : deux
+   colonnes sur `analyses` (texte du bilan, champs saisis), migration
+   idempotente, réaffichage dans Mon espace ; les champs rejoignent aussi
+   `diagnostic_analyses.full_context`. Un mockup HTML de l'étape et de la
+   carte précède le code (§12).
+
 #### Sécurité, à traiter avant d'ouvrir des accès
 
 - **Porter les rôles admin dans le RLS.** Le RLS ne teste aujourd'hui que
@@ -727,19 +790,15 @@ table Airtable et son mapping Make.
 
 #### Petits chantiers identifiés
 
-- **Reconnecter le dépôt dans Vercel** (Settings → Git, vers
-  `Association-Lit-uP/bao-app`) : sans ça, rien ne se déploie
-  automatiquement depuis le transfert du dépôt (§8). À faire en premier,
-  sinon chaque merge demande un déploiement manuel.
 - Vérifier le parcours d'inscription de bout en bout avec un compte de test :
   approuver depuis `/admin/utilisateurs`, puis se connecter (doit passer sans
   lien de confirmation).
-- Brancher la carte « Auto-diagnostic du pro » sur `/bao/diagnostic-pro` :
-  elle affiche aujourd'hui une `alert()` « en cours de développement »
-  (`handleAutoDiagnostic`, `app/bao/diagnostiquer/page.tsx`). Décider au
-  passage si on garde le badge « en cours de développement ».
 - Fusionner `next.config.js` et `next.config.mjs` (§8), en vérifiant si
   `next/image` est utilisé avec des URL Supabase.
+- Vérifier les projets Vercel `jeu-competences-app` et `outils-formation` :
+  ils sont encore liés à l'ancien compte `lit-up-fr`. Si leurs dépôts ont
+  aussi été transférés, ils ont le même problème (§8, piège « Vercel ne
+  déploie plus rien après le transfert du dépôt »).
 - Supprimer la branche `claude/charming-noether-dbppod`, entièrement intégrée
   dans `main` : `git branch -D` puis `git push origin --delete`.
 - Afficher des conseils de prise de vue dans la zone de dépôt photo (de dessus,
@@ -784,7 +843,6 @@ table Airtable et son mapping Make.
 | `is_admin` et `admin_role` (singulier) encore lus en fallback | double source de vérité | moyenne |
 | Historique de migrations incomplet (objets créés dans le dashboard) | `supabase db push` inutilisable | élevée |
 | Rôles admin non appliqués dans le RLS | un rôle restreint ne l'est pas en base | moyenne |
-| `/bao/diagnostic-pro` sans lien entrant | page livrée mais inatteignable | faible |
 | Edge function `send-welcome-email` jamais déployée | code mort tant que la confirmation d'email est désactivée | faible |
 
 Avant de t'attaquer à une ligne de ce tableau, annonce-le : plusieurs de ces
@@ -814,7 +872,9 @@ git log --pretty=format:'%ad | %an | %s' --date=short
 | 19 août 2026 | Laetitia | PWA (PR #5) : manifest `app/manifest.ts`, icônes, métadonnées d'installation. Sans service worker ni notifications push, décision assumée |
 | 11 septembre 2026 | Laetitia | Page publique « La roulette des défis » (PR #6, `/roulette-questions`), avec la redirection `/roulette-defis` pour les QR codes |
 | 22 septembre 2026 | Claude | Ce document de collaboration, avec les conventions, les pièges et les étapes à venir |
-| 3-4 octobre 2026 | Claude | PR #8 : PDF des fiches complet (nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite, pdf.js servi depuis `public/pdfjs/`) et correctif des modifications perdues dans le formulaire admin (`RichTextEditor`). Mise en prod lancée à la main le 20 octobre, la liaison Git Vercel étant cassée (§8) |
+| 3-4 octobre 2026 | Claude | PR #8 : PDF des fiches complet (nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite, pdf.js servi depuis `public/pdfjs/`) et correctif des modifications perdues dans le formulaire admin (`RichTextEditor`) |
+| 10 octobre 2026 | Claude | Bouton œil pour afficher ou masquer le mot de passe sur tous les champs (PR #9, composant `components/PasswordInput.tsx`) |
+| 11 octobre 2026 | Claude | Auto-diagnostic ouvert en bêta (PR #12) : carte reliée à `/bao/diagnostic-pro`, modale d'avertissement, rappel près de l'analyse, option « Autre (précisez) » sur trois questions du contexte |
 
 **Convention** : on ajoute une ligne ici quand un jalon est mergé sur `main`
 (une fonctionnalité visible, une migration de schéma, un correctif de
@@ -921,7 +981,7 @@ corrige alors le document dans la foulée.
 depuis un outil qui ne lit pas ce fichier.
 
 ```
-Récap pour le CLAUDE.md de lit-up-fr/bao-app.
+Récap pour le CLAUDE.md de Association-Lit-uP/bao-app.
 
 Relis notre conversation et sors uniquement ce qui mérite d'être écrit dans le
 CLAUDE.md du repo. Ne reprends que ce qui a été dit ici : n'invente rien et ne

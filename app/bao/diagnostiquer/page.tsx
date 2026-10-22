@@ -4,13 +4,14 @@
 // Page de cadrage des outils de diagnostic motivation.
 // Récupère depuis Supabase toutes les fiches marquées `is_diagnostic_tool = true`
 // et les affiche dans une grille 2×2 avec leur contexte d'usage,
-// + une 4ème carte "Auto-diagnostic" (hardcodée, badge EN COURS).
+// + une 4ème carte "Auto-diagnostic" (hardcodée, badge BÊTA) qui mène à /bao/diagnostic-pro.
 //
 // 🆕 v3 : clic sur une carte ouvre la FicheModal (comme dans la BAO classique)
 // au lieu d'une route /bao/fiche/[slug] inexistante.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   getFiches,
   getClesByFiche,
@@ -32,6 +33,7 @@ interface FicheWithMeta extends Fiche {
 }
 
 export default function DiagnostiquerPage() {
+  const router = useRouter();
   const { userId, isAdmin } = useCurrentUser();
   const [tools, setTools] = useState<FicheWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,10 +77,9 @@ export default function DiagnostiquerPage() {
     load();
   }, []);
 
+  // L'auto-diagnostic est ouvert en version bêta : la page affiche son propre avertissement
   function handleAutoDiagnostic() {
-    alert(
-      "🚧 Cette fonctionnalité est en cours de développement.\n\nElle te permettra bientôt de poser des premières hypothèses sur la motivation du groupe, à partir de tes observations, avant de solliciter les jeunes directement."
-    );
+    router.push("/bao/diagnostic-pro");
   }
 
   return (
@@ -167,7 +168,7 @@ export default function DiagnostiquerPage() {
                 Diagnostic déjà réalisé ?
               </div>
               <div style={{ fontSize: "13px", opacity: 0.85, lineHeight: 1.4 }}>
-                Saisis les résultats pour obtenir une analyse personnalisée et des pistes d&apos;outils adaptés à ton groupe.
+                Saisissez les résultats pour obtenir une analyse personnalisée et des pistes d&apos;outils adaptés à votre groupe.
               </div>
             </div>
             <div style={{
@@ -400,10 +401,10 @@ function AutoDiagCard({ onClick }: { onClick: () => void }) {
               background: "#6B2468", color: "white",
               padding: "2px 6px", borderRadius: "5px",
               textTransform: "uppercase", letterSpacing: "0.3px",
-            }}>En cours</span>
+            }}>Bêta</span>
           </div>
           <div style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.4 }}>
-            Analyse à partir de tes observations
+            Analyse à partir de vos observations
           </div>
         </div>
       </div>
@@ -433,16 +434,15 @@ function AutoDiagCard({ onClick }: { onClick: () => void }) {
       </div>
 
       <div style={{
-        background: "#f3f4f6",
-        color: "#9ca3af",
-        padding: "8px 14px",
+        background: "#6B2468",
+        color: "white",
+        padding: "8px 16px",
         borderRadius: "8px",
         fontSize: "13px",
         fontWeight: 700,
-        border: "1.5px dashed #d1d5db",
         alignSelf: "flex-start",
       }}>
-        🚧 Bientôt disponible
+        Commencer l&apos;auto-diagnostic →
       </div>
     </div>
   );
