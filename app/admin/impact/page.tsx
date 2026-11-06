@@ -74,6 +74,8 @@ export default function AdminImpactPage() {
 
     const sessions = events.filter((e) => e.event_type === "session_start").length;
     const pdfDownloads = events.filter((e) => e.event_type === "pdf_download").length;
+    const barometreAnalyses = events.filter((e) => e.event_type === "barometre_analyse").length;
+    const diagnosticsPro = events.filter((e) => e.event_type === "diagnostic_pro").length;
 
     const thirty = new Date();
     thirty.setDate(thirty.getDate() - 30);
@@ -103,6 +105,42 @@ export default function AdminImpactPage() {
       .sort((a, b) => b.n - a.n)
       .slice(0, 12);
 
+    // Clés les plus souvent à renforcer : alertes du baromètre (score < 50 %)
+    // + clés « à travailler » des auto-diagnostics pro. Agrégé depuis les
+    // metadata des événements (la table analyses n'est lisible que par son auteur).
+    const renforcer: Record<string, number> = {};
+    const addCle = (c: unknown) => {
+      if (typeof c === "string" && c.trim()) renforcer[c.trim()] = (renforcer[c.trim()] || 0) + 1;
+    };
+    events.forEach((e) => {
+      if (e.event_type === "barometre_analyse" && Array.isArray(e.metadata?.alertes)) {
+        e.metadata.alertes.forEach(addCle);
+      }
+      if (e.event_type === "diagnostic_pro" && Array.isArray(e.metadata?.zones?.travailler)) {
+        e.metadata.zones.travailler.forEach(addCle);
+      }
+    });
+    const clesARenforcer = Object.entries(renforcer)
+      .map(([nom, n]) => ({ nom, n }))
+      .sort((a, b) => b.n - a.n);
+
+    // Tranches d'âge des jeunes concernés, déclarées dans les auto-diagnostics
+    // et les analyses du baromètre (même référentiel de tranches).
+    const ages: Record<string, number> = {};
+    events.forEach((e) => {
+      if (
+        (e.event_type === "diagnostic_pro" || e.event_type === "barometre_analyse") &&
+        Array.isArray(e.metadata?.tranches_age)
+      ) {
+        e.metadata.tranches_age.forEach((a: unknown) => {
+          if (typeof a === "string" && a.trim()) ages[a.trim()] = (ages[a.trim()] || 0) + 1;
+        });
+      }
+    });
+    const agesDiagnostics = Object.entries(ages)
+      .map(([k, n]) => ({ k, n }))
+      .sort((a, b) => b.n - a.n);
+
     const notes = retours.map((r) => r.note).filter((n: any) => n != null);
     const avgNote = notes.length
       ? Math.round((notes.reduce((a: number, b: number) => a + b, 0) / notes.length) * 10) / 10
@@ -124,8 +162,12 @@ export default function AdminImpactPage() {
       favTotal: favNonAdmin.length,
       sessions,
       pdfDownloads,
+      barometreAnalyses,
+      diagnosticsPro,
       actifs30,
       topTools,
+      clesARenforcer,
+      agesDiagnostics,
       zeroSearch,
       avgNote,
       regionStats: groupBy("region"),
@@ -157,6 +199,8 @@ export default function AdminImpactPage() {
         <StatCard value={m.jeunesPotentiel.toLocaleString("fr-FR")} label="Jeunes touchés / an (estimé)" color="#6B2468" emoji="🎯" />
         <StatCard value={m.sessions} label="Visites (sessions)" color="#0ea5e9" emoji="🚪" />
         <StatCard value={m.pdfDownloads} label="Fiches PDF téléchargées" color="#f59e0b" emoji="↓" />
+        <StatCard value={m.barometreAnalyses} label="Analyses du baromètre" color="#00989D" emoji="📊" />
+        <StatCard value={m.diagnosticsPro} label="Auto-diagnostics pro" color="#6B2468" emoji="🧭" />
       </div>
 
       {/* Portée encadrants vs objectif Fondation */}
@@ -204,6 +248,8 @@ export default function AdminImpactPage() {
           <MiniStat value={m.consultTotal} label="Consultations d'outils" />
           <MiniStat value={m.favTotal} label="Mises en favori" />
           <MiniStat value={m.pdfDownloads} label="Téléchargements PDF" />
+          <MiniStat value={m.barometreAnalyses} label="Analyses du baromètre" />
+          <MiniStat value={m.diagnosticsPro} label="Auto-diagnostics pro" />
           <MiniStat value={m.avgNote == null ? "—" : `${m.avgNote}/5`} label="Note moyenne des outils" />
         </div>
       </Card>
@@ -220,6 +266,28 @@ export default function AdminImpactPage() {
           <h3 style={cardTitleStyle}>Par catégorie professionnelle</h3>
           {m.catStats.length === 0 ? <Empty /> : m.catStats.slice(0, 10).map((c) => (
             <BarRow key={c.k} label={c.k} value={c.n} max={m.catStats[0].n} color="#00989D" />
+          ))}
+        </Card>
+      </div>
+
+      {/* Diagnostics : clés en difficulté + publics concernés */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "20px" }}>
+        <Card noMargin>
+          <h3 style={cardTitleStyle}>🔑 Clés les plus souvent à renforcer</h3>
+          <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "-8px", marginBottom: "12px" }}>
+            Alertes du baromètre (score sous 50&nbsp;%) et clés «&nbsp;à travailler&nbsp;» des auto-diagnostics pro.
+          </p>
+          {m.clesARenforcer.length === 0 ? <Empty /> : m.clesARenforcer.slice(0, 10).map((c) => (
+            <BarRow key={c.nom} label={c.nom} value={c.n} max={m.clesARenforcer[0].n} color="#dc2626" suffix="fois" />
+          ))}
+        </Card>
+        <Card noMargin>
+          <h3 style={cardTitleStyle}>🎯 Tranches d&apos;âge des jeunes concernés</h3>
+          <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "-8px", marginBottom: "12px" }}>
+            Déclarées par les pros dans les auto-diagnostics et les analyses du baromètre.
+          </p>
+          {m.agesDiagnostics.length === 0 ? <Empty /> : m.agesDiagnostics.map((a) => (
+            <BarRow key={a.k} label={a.k} value={a.n} max={m.agesDiagnostics[0].n} color="#6B2468" suffix="fois" />
           ))}
         </Card>
       </div>

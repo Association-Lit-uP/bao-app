@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { supabase, authHeaders } from "@/lib/supabase";
+import { logEvent } from "@/lib/analytics";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 import BetaDiagnosticModal from "@/components/BetaDiagnosticModal";
@@ -451,22 +452,51 @@ Génère une analyse personnalisée en respectant strictement la posture défini
           },
         }),
       });
+      let statutIA: "ok" | "quota" | "erreur" = "erreur";
       if (apiRes.ok) {
         const data = await apiRes.json();
         const text = data.text || data.content?.[0]?.text || "Analyse indisponible.";
         setAnalysisText(text);
         setChatMessages([{ role: "assistant", content: text }]);
+        statutIA = "ok";
       } else if (apiRes.status === 429) {
         // Quota mensuel atteint
         const errData = await apiRes.json().catch(() => ({}));
         setAnalysisText(`⚠️ ${errData.error || "Quota mensuel atteint. Réessaie le mois prochain."}`);
+        statutIA = "quota";
       } else {
         setAnalysisText("Erreur lors de l'analyse. Veuillez réessayer.");
       }
+      // Suivi d'usage (fire & forget) : un auto-diagnostic complété.
+      // Les clés sont nommées (pas seulement comptées) pour permettre au
+      // tableau de bord d'impact d'agréger les clés les plus en difficulté.
+      logEvent("diagnostic_pro", {
+        metadata: {
+          objectif: ctx.objectif,
+          statut_ia: statutIA,
+          nb_jeunes: parseInt(ctx.nb_jeunes) || null,
+          tranches_age: ctx.tranches_age,
+          type_organisation: ctx.type_organisation,
+          zones: {
+            appui: appui.map(r => r.nom),
+            explorer: explorer.map(r => r.nom),
+            travailler: travailler.map(r => r.nom),
+          },
+        },
+      });
       // ⚠️ Plus de sauvegarde silencieuse : l'utilisateur clique sur
       // "💾 Sauvegarder l'analyse" pour la retrouver dans Mon Espace.
     } catch {
       setAnalysisText("Erreur de connexion.");
+      logEvent("diagnostic_pro", {
+        metadata: {
+          objectif: ctx.objectif,
+          statut_ia: "erreur",
+          nb_jeunes: parseInt(ctx.nb_jeunes) || null,
+          tranches_age: ctx.tranches_age,
+          type_organisation: ctx.type_organisation,
+        },
+      });
     }
     setLoading(false);
     setStep(2);

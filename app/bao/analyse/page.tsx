@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { supabase, authHeaders } from "@/lib/supabase";
+import { logEvent } from "@/lib/analytics";
 import AppHeader from "@/components/AppHeader";
 
 /* ── Constantes ── */
@@ -25,6 +26,9 @@ const COULEURS_JETONS = {
 };
 
 const MATERIELS = ["Jetons", "Gommettes", "Feutres", "Questionnaire individuel", "Autre"];
+
+// Mêmes tranches que le diagnostic pro, pour agréger les deux dans /admin/impact.
+const TRANCHES_AGE = ["Moins de 14 ans", "14-16 ans", "16-18 ans", "18-25 ans", "Plus de 25 ans"];
 
 type TypeEval = "ponctuelle" | "parcours";
 type Scores = Record<string, number>; // 0-100
@@ -225,6 +229,7 @@ export default function AnalysePage() {
   const [nomAtelier, setNomAtelier] = useState("");
   const [dateAtelier, setDateAtelier] = useState("");
   const [nbJeunes, setNbJeunes] = useState("");
+  const [tranchesAge, setTranchesAge] = useState<string[]>([]);
   const [typeEval, setTypeEval] = useState<TypeEval>("ponctuelle");
   const [materiel, setMateriel] = useState("Jetons");
   const [codeRespect, setCodeRespect] = useState(true);
@@ -360,6 +365,21 @@ export default function AnalysePage() {
     setAiError("");
     setAnalyse(computeAnalyse(scores));
     setStep(3);
+    // Suivi d'usage (fire & forget) : une analyse du baromètre générée.
+    // scores et alertes permettent d'agréger côté admin les clés en difficulté
+    // sans dépendre de la table analyses (lisible uniquement par son auteur).
+    logEvent("barometre_analyse", {
+      metadata: {
+        mode: aiAnalyzed ? "photo_ia" : "manuel",
+        materiel,
+        type_eval: typeEval,
+        nb_jeunes: nbJeunes ? parseInt(nbJeunes) : null,
+        tranches_age: tranchesAge,
+        nb_cles: Object.keys(scores).length,
+        scores,
+        alertes: getAlertes(scores),
+      },
+    });
   }
 
   const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -633,6 +653,30 @@ ${jsonTemplate}`
                 <select value={materiel} onChange={(e) => setMateriel(e.target.value)} style={inputStyle}>
                   {MATERIELS.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Tranches d&apos;âge des jeunes (facultatif)</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                {TRANCHES_AGE.map((age) => {
+                  const on = tranchesAge.includes(age);
+                  return (
+                    <button
+                      key={age}
+                      onClick={() => setTranchesAge((prev) => on ? prev.filter((a) => a !== age) : [...prev, age])}
+                      style={{
+                        padding: "8px 14px", borderRadius: "18px", fontSize: "13px", fontWeight: 600,
+                        cursor: "pointer", fontFamily: "inherit",
+                        border: `2px solid ${on ? "var(--canard)" : "var(--line)"}`,
+                        background: on ? "#e0f3f4" : "white",
+                        color: "var(--anthracite)",
+                      }}
+                    >
+                      {age}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
