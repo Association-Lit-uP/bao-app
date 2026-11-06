@@ -124,10 +124,14 @@ export default function AdminImpactPage() {
       .map(([nom, n]) => ({ nom, n }))
       .sort((a, b) => b.n - a.n);
 
-    // Tranches d'âge des jeunes concernés, déclarées dans les auto-diagnostics.
+    // Tranches d'âge des jeunes concernés, déclarées dans les auto-diagnostics
+    // et les analyses du baromètre (même référentiel de tranches).
     const ages: Record<string, number> = {};
     events.forEach((e) => {
-      if (e.event_type === "diagnostic_pro" && Array.isArray(e.metadata?.tranches_age)) {
+      if (
+        (e.event_type === "diagnostic_pro" || e.event_type === "barometre_analyse") &&
+        Array.isArray(e.metadata?.tranches_age)
+      ) {
         e.metadata.tranches_age.forEach((a: unknown) => {
           if (typeof a === "string" && a.trim()) ages[a.trim()] = (ages[a.trim()] || 0) + 1;
         });
@@ -280,10 +284,10 @@ export default function AdminImpactPage() {
         <Card noMargin>
           <h3 style={cardTitleStyle}>🎯 Tranches d&apos;âge des jeunes concernés</h3>
           <p style={{ fontSize: "12px", color: "#9ca3af", marginTop: "-8px", marginBottom: "12px" }}>
-            Déclarées par les pros dans les auto-diagnostics.
+            Déclarées par les pros dans les auto-diagnostics et les analyses du baromètre.
           </p>
           {m.agesDiagnostics.length === 0 ? <Empty /> : m.agesDiagnostics.map((a) => (
-            <BarRow key={a.k} label={a.k} value={a.n} max={m.agesDiagnostics[0].n} color="#6B2468" suffix="diag." />
+            <BarRow key={a.k} label={a.k} value={a.n} max={m.agesDiagnostics[0].n} color="#6B2468" suffix="fois" />
           ))}
         </Card>
       </div>

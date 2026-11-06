@@ -685,7 +685,7 @@ déployer un commit plus ancien que lui.
 - Analytics (`analytics_events`) et tableau de bord d'impact (`/admin/impact`).
   Événements suivis : `session_start`, `pdf_download`, `search`,
   `barometre_analyse` (résultats du baromètre générés : mode photo IA ou
-  manuel, scores et clés en alerte), `diagnostic_pro` (auto-diagnostic
+  manuel, scores, clés en alerte, tranches d'âge), `diagnostic_pro` (auto-diagnostic
   complété : statut IA, tranches d'âge, organisation, clés nommées par zone).
   Le tableau de bord agrège les clés les plus souvent à renforcer et les
   tranches d'âge depuis les metadata de ces événements (la table `analyses`
