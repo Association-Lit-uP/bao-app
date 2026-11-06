@@ -882,6 +882,7 @@ git log --pretty=format:'%ad | %an | %s' --date=short
 | 3-4 octobre 2026 | Claude | PR #8 : PDF des fiches complet (nom de fichier au nom de l'outil, illustrations et images d'étapes, liens cliquables avec URL, ressources complémentaires jointes à la suite, pdf.js servi depuis `public/pdfjs/`) et correctif des modifications perdues dans le formulaire admin (`RichTextEditor`) |
 | 10 octobre 2026 | Claude | Bouton œil pour afficher ou masquer le mot de passe sur tous les champs (PR #9, composant `components/PasswordInput.tsx`) |
 | 11 octobre 2026 | Claude | Auto-diagnostic ouvert en bêta (PR #12) : carte reliée à `/bao/diagnostic-pro`, modale d'avertissement, rappel près de l'analyse, option « Autre (précisez) » sur trois questions du contexte |
+| 6 novembre 2026 | Claude | Suivi analytics du baromètre et de l'auto-diagnostic : événements `barometre_analyse` et `diagnostic_pro` enrichis (scores, clés en alerte, tranches d'âge, zones), champ tranches d'âge dans le formulaire du baromètre, cartes « Clés les plus souvent à renforcer » et « Tranches d'âge » dans `/admin/impact` |
 
 **Convention** : on ajoute une ligne ici quand un jalon est mergé sur `main`
 (une fonctionnalité visible, une migration de schéma, un correctif de
