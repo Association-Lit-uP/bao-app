@@ -684,8 +684,12 @@ déployer un commit plus ancien que lui.
 - PDF des fiches, favoris, retours d'expérience, propositions d'outils
 - Analytics (`analytics_events`) et tableau de bord d'impact (`/admin/impact`).
   Événements suivis : `session_start`, `pdf_download`, `search`,
-  `barometre_analyse` (résultats du baromètre générés, mode photo IA ou manuel),
-  `diagnostic_pro` (auto-diagnostic complété, avec statut de l'analyse IA)
+  `barometre_analyse` (résultats du baromètre générés : mode photo IA ou
+  manuel, scores et clés en alerte), `diagnostic_pro` (auto-diagnostic
+  complété : statut IA, tranches d'âge, organisation, clés nommées par zone).
+  Le tableau de bord agrège les clés les plus souvent à renforcer et les
+  tranches d'âge depuis les metadata de ces événements (la table `analyses`
+  n'étant lisible que par son auteur, voir priorité 2)
 - Synchronisation d'impact vers Airtable via Make (inscription, usage d'outil)
 - PWA (manifest, icônes, installation)
 - Page publique « La roulette des défis »

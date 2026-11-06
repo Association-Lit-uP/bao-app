@@ -468,15 +468,19 @@ Génère une analyse personnalisée en respectant strictement la posture défini
         setAnalysisText("Erreur lors de l'analyse. Veuillez réessayer.");
       }
       // Suivi d'usage (fire & forget) : un auto-diagnostic complété.
+      // Les clés sont nommées (pas seulement comptées) pour permettre au
+      // tableau de bord d'impact d'agréger les clés les plus en difficulté.
       logEvent("diagnostic_pro", {
         metadata: {
           objectif: ctx.objectif,
           statut_ia: statutIA,
           nb_jeunes: parseInt(ctx.nb_jeunes) || null,
+          tranches_age: ctx.tranches_age,
+          type_organisation: ctx.type_organisation,
           zones: {
-            appui: appui.length,
-            explorer: explorer.length,
-            travailler: travailler.length,
+            appui: appui.map(r => r.nom),
+            explorer: explorer.map(r => r.nom),
+            travailler: travailler.map(r => r.nom),
           },
         },
       });
@@ -489,6 +493,8 @@ Génère une analyse personnalisée en respectant strictement la posture défini
           objectif: ctx.objectif,
           statut_ia: "erreur",
           nb_jeunes: parseInt(ctx.nb_jeunes) || null,
+          tranches_age: ctx.tranches_age,
+          type_organisation: ctx.type_organisation,
         },
       });
     }

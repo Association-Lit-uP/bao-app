@@ -362,6 +362,8 @@ export default function AnalysePage() {
     setAnalyse(computeAnalyse(scores));
     setStep(3);
     // Suivi d'usage (fire & forget) : une analyse du baromètre générée.
+    // scores et alertes permettent d'agréger côté admin les clés en difficulté
+    // sans dépendre de la table analyses (lisible uniquement par son auteur).
     logEvent("barometre_analyse", {
       metadata: {
         mode: aiAnalyzed ? "photo_ia" : "manuel",
@@ -369,6 +371,8 @@ export default function AnalysePage() {
         type_eval: typeEval,
         nb_jeunes: nbJeunes ? parseInt(nbJeunes) : null,
         nb_cles: Object.keys(scores).length,
+        scores,
+        alertes: getAlertes(scores),
       },
     });
   }
