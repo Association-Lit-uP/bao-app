@@ -74,6 +74,8 @@ export default function AdminImpactPage() {
 
     const sessions = events.filter((e) => e.event_type === "session_start").length;
     const pdfDownloads = events.filter((e) => e.event_type === "pdf_download").length;
+    const barometreAnalyses = events.filter((e) => e.event_type === "barometre_analyse").length;
+    const diagnosticsPro = events.filter((e) => e.event_type === "diagnostic_pro").length;
 
     const thirty = new Date();
     thirty.setDate(thirty.getDate() - 30);
@@ -124,6 +126,8 @@ export default function AdminImpactPage() {
       favTotal: favNonAdmin.length,
       sessions,
       pdfDownloads,
+      barometreAnalyses,
+      diagnosticsPro,
       actifs30,
       topTools,
       zeroSearch,
@@ -157,6 +161,8 @@ export default function AdminImpactPage() {
         <StatCard value={m.jeunesPotentiel.toLocaleString("fr-FR")} label="Jeunes touchés / an (estimé)" color="#6B2468" emoji="🎯" />
         <StatCard value={m.sessions} label="Visites (sessions)" color="#0ea5e9" emoji="🚪" />
         <StatCard value={m.pdfDownloads} label="Fiches PDF téléchargées" color="#f59e0b" emoji="↓" />
+        <StatCard value={m.barometreAnalyses} label="Analyses du baromètre" color="#00989D" emoji="📊" />
+        <StatCard value={m.diagnosticsPro} label="Auto-diagnostics pro" color="#6B2468" emoji="🧭" />
       </div>
 
       {/* Portée encadrants vs objectif Fondation */}
@@ -204,6 +210,8 @@ export default function AdminImpactPage() {
           <MiniStat value={m.consultTotal} label="Consultations d'outils" />
           <MiniStat value={m.favTotal} label="Mises en favori" />
           <MiniStat value={m.pdfDownloads} label="Téléchargements PDF" />
+          <MiniStat value={m.barometreAnalyses} label="Analyses du baromètre" />
+          <MiniStat value={m.diagnosticsPro} label="Auto-diagnostics pro" />
           <MiniStat value={m.avgNote == null ? "—" : `${m.avgNote}/5`} label="Note moyenne des outils" />
         </div>
       </Card>

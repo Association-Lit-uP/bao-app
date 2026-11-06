@@ -14,7 +14,9 @@
   édition des profils (admin → non-admins, super-admin → tous).
 - Collecte « jeunes accompagnés / an » (fourchette) à l'inscription.
 - **Phase 1 tracking** : table `analytics_events` + events `session_start`,
-  `pdf_download`, `search` (`lib/analytics.ts`).
+  `pdf_download`, `search`, `barometre_analyse` (résultats du baromètre générés,
+  mode photo IA ou manuel), `diagnostic_pro` (auto-diagnostic complété)
+  (`lib/analytics.ts`).
 - **Phase 4** : tableau de bord d'impact `/admin/impact`.
 - **Intégration Airtable (bricks 1 & 2)** : inscription + « j'ai utilisé cet
   outil avec X jeunes » → Airtable.

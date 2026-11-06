@@ -682,7 +682,10 @@ déployer un commit plus ancien que lui.
 - Back-office admin complet avec rôles cumulables
 - Diagnostic pro et analyse photo du baromètre, assistés par Claude
 - PDF des fiches, favoris, retours d'expérience, propositions d'outils
-- Analytics (`analytics_events`) et tableau de bord d'impact (`/admin/impact`)
+- Analytics (`analytics_events`) et tableau de bord d'impact (`/admin/impact`).
+  Événements suivis : `session_start`, `pdf_download`, `search`,
+  `barometre_analyse` (résultats du baromètre générés, mode photo IA ou manuel),
+  `diagnostic_pro` (auto-diagnostic complété, avec statut de l'analyse IA)
 - Synchronisation d'impact vers Airtable via Make (inscription, usage d'outil)
 - PWA (manifest, icônes, installation)
 - Page publique « La roulette des défis »

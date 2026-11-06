@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { supabase, authHeaders } from "@/lib/supabase";
+import { logEvent } from "@/lib/analytics";
 import AppHeader from "@/components/AppHeader";
 
 /* ── Constantes ── */
@@ -360,6 +361,16 @@ export default function AnalysePage() {
     setAiError("");
     setAnalyse(computeAnalyse(scores));
     setStep(3);
+    // Suivi d'usage (fire & forget) : une analyse du baromètre générée.
+    logEvent("barometre_analyse", {
+      metadata: {
+        mode: aiAnalyzed ? "photo_ia" : "manuel",
+        materiel,
+        type_eval: typeEval,
+        nb_jeunes: nbJeunes ? parseInt(nbJeunes) : null,
+        nb_cles: Object.keys(scores).length,
+      },
+    });
   }
 
   const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

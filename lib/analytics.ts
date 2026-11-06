@@ -1,7 +1,16 @@
 import { supabase } from "./supabase";
 
 // Types d'événements d'usage journalisés dans public.analytics_events.
-export type AnalyticsEventType = "session_start" | "pdf_download" | "search";
+//   - barometre_analyse : résultats du baromètre générés sur /bao/analyse
+//     (metadata : mode photo_ia/manuel, matériel, type d'évaluation, nb jeunes)
+//   - diagnostic_pro    : auto-diagnostic complété sur /bao/diagnostic-pro
+//     (metadata : objectif, statut de l'analyse IA ok/quota/erreur, nb jeunes)
+export type AnalyticsEventType =
+  | "session_start"
+  | "pdf_download"
+  | "search"
+  | "barometre_analyse"
+  | "diagnostic_pro";
 
 /**
  * Journalise un événement d'usage. « Fire & forget » : ne lève jamais et ne
