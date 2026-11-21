@@ -24,8 +24,8 @@ interface ContextData {
   autre_connaissance: string;      // si connaissance_jeunes === "Autre"
   frequence: string;
   autre_frequence: string;         // si frequence === "Autre"
-  objectif_accompagnement: string;
-  autre_objectif_accompagnement: string; // si objectif_accompagnement === "Autre"
+  objectifs_accompagnement: string[];    // choix multiple
+  autre_objectif_accompagnement: string; // si objectifs_accompagnement contient "Autre"
   volontariat: string;
   heterogeneite: string;
   // Nouvelles thématiques (selon objectif)
@@ -287,7 +287,7 @@ export default function DiagnosticProPage() {
   const [ctx, setCtx] = useState<ContextData>({
     nom_atelier: "", objectif: "", type_accompagnement: "", nb_jeunes: "", tranches_age: [],
     type_organisation: "", autre_organisation: "", connaissance_jeunes: "", autre_connaissance: "",
-    frequence: "", autre_frequence: "", objectif_accompagnement: "", autre_objectif_accompagnement: "",
+    frequence: "", autre_frequence: "", objectifs_accompagnement: [], autre_objectif_accompagnement: "",
     volontariat: "", heterogeneite: "",
     thematique_atelier: "", thematique_passe: "", thematique_avenir: "",
   });
@@ -346,6 +346,16 @@ export default function DiagnosticProPage() {
     setCtx(p => ({ ...p, tranches_age: p.tranches_age.includes(age) ? p.tranches_age.filter(a => a !== age) : [...p.tranches_age, age] }));
   }
 
+  function toggleObjectifAccompagnement(objectif: string) {
+    setCtx(p => ({ ...p, objectifs_accompagnement: p.objectifs_accompagnement.includes(objectif) ? p.objectifs_accompagnement.filter(o => o !== objectif) : [...p.objectifs_accompagnement, objectif] }));
+  }
+
+  // Libellé envoyé à l'IA et conservé pour la relecture admin : chaque objectif
+  // choisi, « Autre » étant remplacé par la précision saisie.
+  const objectifsAccompagnementLabel = ctx.objectifs_accompagnement
+    .map(o => libelleAvecPrecision(o, ctx.autre_objectif_accompagnement))
+    .join(", ");
+
   /* ── Compute results ── */
   function computeResults(): CleResult[] {
     return CLES.map(cle => {
@@ -381,7 +391,7 @@ TRANCHES D'ÂGE : ${ctx.tranches_age.join(", ")}
 ORGANISATION : ${ctx.type_organisation}${ctx.autre_organisation ? ` (${ctx.autre_organisation})` : ""}
 CONNAISSANCE DES JEUNES : ${ctx.connaissance_jeunes ? libelleAvecPrecision(ctx.connaissance_jeunes, ctx.autre_connaissance) : "non précisé"}
 FRÉQUENCE : ${ctx.frequence ? libelleAvecPrecision(ctx.frequence, ctx.autre_frequence) : "non précisée"}
-OBJECTIF ACCOMPAGNEMENT : ${ctx.objectif_accompagnement ? libelleAvecPrecision(ctx.objectif_accompagnement, ctx.autre_objectif_accompagnement) : "non précisé"}
+OBJECTIF(S) DE L'ACCOMPAGNEMENT : ${objectifsAccompagnementLabel || "non précisé"}
 VOLONTARIAT : ${ctx.volontariat}
 HÉTÉROGÉNÉITÉ MOTIVATION : ${ctx.heterogeneite || "non précisé"}
 ${ctx.objectif === "evaluer" && ctx.thematique_atelier ? `THÉMATIQUE DE L'ATELIER ÉVALUÉ : ${ctx.thematique_atelier}` : ""}
@@ -444,7 +454,7 @@ Génère une analyse personnalisée en respectant strictement la posture défini
             autre_organisation: ctx.autre_organisation || undefined,
             connaissance_jeunes: ctx.connaissance_jeunes ? libelleAvecPrecision(ctx.connaissance_jeunes, ctx.autre_connaissance) : undefined,
             frequence: ctx.frequence ? libelleAvecPrecision(ctx.frequence, ctx.autre_frequence) : undefined,
-            objectif_accompagnement: ctx.objectif_accompagnement ? libelleAvecPrecision(ctx.objectif_accompagnement, ctx.autre_objectif_accompagnement) : undefined,
+            objectif_accompagnement: objectifsAccompagnementLabel || undefined,
             precisions: precisions,
             commentaire_libre: champLibre,
             user_id: userIdForApi,
@@ -847,16 +857,16 @@ Génère une analyse personnalisée en respectant strictement la posture défini
               )}
             </div>
 
-            {/* Q8: Objectif accompagnement */}
+            {/* Q8: Objectifs accompagnement (choix multiple) */}
             <div style={S.field}>
-              <label style={S.label}>Objectif principal de l'accompagnement</label>
+              <label style={S.label}>Objectif(s) de l'accompagnement (choix multiple)</label>
               <div style={S.rg}>
                 {["Remobilisation", "Insertion professionnelle", "Projet de vie", "Cohésion de groupe", "Développement personnel", "Autre"].map(o => (
-                  <div key={o} style={S.rb(ctx.objectif_accompagnement === o)} onClick={() => setCtx(p => ({ ...p, objectif_accompagnement: o }))}>{o === "Autre" ? "Autre (précisez)" : o}</div>
+                  <div key={o} style={S.cb(ctx.objectifs_accompagnement.includes(o))} onClick={() => toggleObjectifAccompagnement(o)}>{o === "Autre" ? "Autre (précisez)" : o}</div>
                 ))}
               </div>
-              {ctx.objectif_accompagnement === "Autre" && (
-                <input type="text" placeholder="Précisez l'objectif principal de l'accompagnement" value={ctx.autre_objectif_accompagnement} onChange={e => setCtx(p => ({ ...p, autre_objectif_accompagnement: e.target.value }))} style={S.autre} />
+              {ctx.objectifs_accompagnement.includes("Autre") && (
+                <input type="text" placeholder="Précisez le ou les autres objectifs de l'accompagnement" value={ctx.autre_objectif_accompagnement} onChange={e => setCtx(p => ({ ...p, autre_objectif_accompagnement: e.target.value }))} style={S.autre} />
               )}
             </div>
 
